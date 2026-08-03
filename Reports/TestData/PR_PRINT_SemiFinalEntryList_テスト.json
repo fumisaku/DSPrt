@@ -1,0 +1,11 @@
+{
+  "_comment": "PR_PRINT テストデータ — 準決勝進出者名簿（縦・ヒートなし）",
+  "jobId": "test-semi-final-entry-001",
+  "layoutId": "SEMI_FINAL_ENTRY_LIST_A4",
+  "copies": 1,
+  "data": {
+    "KbnNo": "2",
+    "RndNo": "3",
+    "DGrpNo": ""
+  }
+}

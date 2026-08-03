@@ -1,0 +1,109 @@
+{
+  "_comment": "DS_Status テストデータ — 準決勝進出者名簿 テスト（25組・3ページ確認用）",
+  "_note": "KbnNo=2, RndNo=3 の準決勝。25組出場。全種目グループ。1ページ目=01〜12組、2ページ目=13〜24組、3ページ目=25組のみ。",
+  "DS_OrgCD": "JS",
+  "DS_CompNo": "TEST003",
+  "DS_Version": 1,
+  "DS_FLOORs": [
+    {
+      "DS_FlrCd": "A",
+      "DS_CurPrgNo": "2",
+      "DS_CurPrgSubNo": "1",
+      "DS_PRGRSs": [
+        {
+          "DS_PrgNo": "2",
+          "DS_PrgSubNo": "1",
+          "DS_KbnNo": "2",
+          "DS_RndNo": "3",
+          "DS_DGrpNo": "1",
+          "DS_PrgSts": "1",
+          "DS_PrgShuffle": false,
+          "PlayerAssignments": [
+            { "PlayerNo": "3",  "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] },
+            { "PlayerNo": "5",  "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h2"] },
+            { "PlayerNo": "8",  "AssignedHeatIds": ["h1", "h1", "h1", "h2", "h2"] },
+            { "PlayerNo": "11", "AssignedHeatIds": ["h1", "h1", "h2", "h2", "h2"] },
+            { "PlayerNo": "14", "AssignedHeatIds": ["h1", "h2", "h2", "h2", "h2"] },
+            { "PlayerNo": "18", "AssignedHeatIds": ["h1", "h2", "h2", "h2", "h3"] },
+            { "PlayerNo": "21", "AssignedHeatIds": ["h2", "h2", "h2", "h2", "h3"] },
+            { "PlayerNo": "24", "AssignedHeatIds": ["h2", "h2", "h2", "h3", "h3"] },
+            { "PlayerNo": "27", "AssignedHeatIds": ["h2", "h2", "h3", "h3", "h3"] },
+            { "PlayerNo": "30", "AssignedHeatIds": ["h2", "h3", "h3", "h3", "h3"] },
+            { "PlayerNo": "33", "AssignedHeatIds": ["h2", "h3", "h3", "h3", "h4"] },
+            { "PlayerNo": "36", "AssignedHeatIds": ["h3", "h3", "h3", "h3", "h4"] },
+            { "PlayerNo": "38", "AssignedHeatIds": ["h3", "h3", "h3", "h4", "h4"] },
+            { "PlayerNo": "42", "AssignedHeatIds": ["h3", "h3", "h4", "h4", "h4"] },
+            { "PlayerNo": "45", "AssignedHeatIds": ["h3", "h4", "h4", "h4", "h4"] },
+            { "PlayerNo": "47", "AssignedHeatIds": ["h3", "h4", "h4", "h4", "h5"] },
+            { "PlayerNo": "50", "AssignedHeatIds": ["h4", "h4", "h4", "h4", "h5"] },
+            { "PlayerNo": "53", "AssignedHeatIds": ["h4", "h4", "h4", "h5", "h5"] },
+            { "PlayerNo": "56", "AssignedHeatIds": ["h4", "h4", "h5", "h5", "h5"] },
+            { "PlayerNo": "59", "AssignedHeatIds": ["h4", "h5", "h5", "h5", "h5"] },
+            { "PlayerNo": "61", "AssignedHeatIds": ["h4", "h5", "h5", "h5", "h1"] },
+            { "PlayerNo": "65", "AssignedHeatIds": ["h5", "h5", "h5", "h5", "h1"] },
+            { "PlayerNo": "70", "AssignedHeatIds": ["h5", "h5", "h5", "h1", "h1"] },
+            { "PlayerNo": "75", "AssignedHeatIds": ["h5", "h5", "h1", "h1", "h2"] },
+            { "PlayerNo": "82", "AssignedHeatIds": ["h5", "h1", "h1", "h2", "h2"] }
+          ],
+          "DS_PRGDANCEs": [
+            {
+              "DS_DncNo": 1,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h4", "DS_HeatNo": 4, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h5", "DS_HeatNo": 5, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 2,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h4", "DS_HeatNo": 4, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h5", "DS_HeatNo": 5, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 3,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h4", "DS_HeatNo": 4, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h5", "DS_HeatNo": 5, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 4,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h4", "DS_HeatNo": 4, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h5", "DS_HeatNo": 5, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 5,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h4", "DS_HeatNo": 4, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h5", "DS_HeatNo": 5, "DS_HeatSts": "0" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "_comment": "PR_PRINT 電文のテストデータ — AWARD_CERTIFICATE（表彰状）",
+  "jobId": "JS001_AWARD_20250601120000_001",
+  "layoutId": "AWARD_CERTIFICATE",
+  "copies": 1,
+  "priority": 1,
+  "data": {
+    "CmpNo": "001",
+    "CmpName": "第42回関東ダンス選手権大会",
+    "CmpDate": "2025-06-01",
+    "KbnName": "スタンダード種目",
+    "RankName": "決勝",
+    "Awards": [
+      {
+        "Rank": 1,
+        "PlayerNo": "A001",
+        "PlayerName": "山田 太郎",
+        "PlayerName_R": "YAMADA TARO",
+        "PairName": "鈴木 花子",
+        "PairName_R": "SUZUKI HANAKO",
+        "ClubName": "東京ダンスクラブ",
+        "Score": "98.50"
+      },
+      {
+        "Rank": 2,
+        "PlayerNo": "A002",
+        "PlayerName": "佐藤 次郎",
+        "PlayerName_R": "SATO JIRO",
+        "PairName": "田中 美咲",
+        "PairName_R": "TANAKA MISAKI",
+        "ClubName": "横浜スポーツダンス",
+        "Score": "96.20"
+      },
+      {
+        "Rank": 3,
+        "PlayerNo": "A003",
+        "PlayerName": "中村 健一",
+        "PlayerName_R": "NAKAMURA KENICHI",
+        "PairName": "小林 由美",
+        "PairName_R": "KOBAYASHI YUMI",
+        "ClubName": "埼玉ダンスアカデミー",
+        "Score": "94.80"
+      }
+    ]
+  }
+}

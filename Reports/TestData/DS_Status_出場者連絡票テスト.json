@@ -1,0 +1,101 @@
+{
+  "_comment": "DS_Status テストデータ — 出場者連絡票（横）テスト用",
+  "_note": "KbnNo=1, RndNo=1 の1次予選。4ヒート・20組出場。",
+  "DS_OrgCD": "JS",
+  "DS_CompNo": "TEST001",
+  "DS_Version": 1,
+  "DS_FLOORs": [
+    {
+      "DS_FlrCd": "A",
+      "DS_CurPrgNo": "1",
+      "DS_CurPrgSubNo": "1",
+      "DS_PRGRSs": [
+        {
+          "DS_PrgNo": "1",
+          "DS_PrgSubNo": "1",
+          "DS_KbnNo": "1",
+          "DS_RndNo": "1",
+          "DS_DGrpNo": "1",
+          "DS_PrgSts": "2",
+          "DS_PrgPStaTM": "2026-08-01T10:00:00",
+          "DS_PrgPEndTM": "2026-08-01T10:45:00",
+          "DS_PrgShuffle": false,
+          "PlayerAssignments": [
+            { "PlayerNo": "1",  "AssignedHeatIds": ["heat-uuid-001"] },
+            { "PlayerNo": "2",  "AssignedHeatIds": ["heat-uuid-001"] },
+            { "PlayerNo": "3",  "AssignedHeatIds": ["heat-uuid-001"] },
+            { "PlayerNo": "4",  "AssignedHeatIds": ["heat-uuid-001"] },
+            { "PlayerNo": "5",  "AssignedHeatIds": ["heat-uuid-001"] },
+            { "PlayerNo": "6",  "AssignedHeatIds": ["heat-uuid-002"] },
+            { "PlayerNo": "7",  "AssignedHeatIds": ["heat-uuid-002"] },
+            { "PlayerNo": "8",  "AssignedHeatIds": ["heat-uuid-002"] },
+            { "PlayerNo": "9",  "AssignedHeatIds": ["heat-uuid-002"] },
+            { "PlayerNo": "10", "AssignedHeatIds": ["heat-uuid-002"] },
+            { "PlayerNo": "11", "AssignedHeatIds": ["heat-uuid-003"] },
+            { "PlayerNo": "12", "AssignedHeatIds": ["heat-uuid-003"] },
+            { "PlayerNo": "13", "AssignedHeatIds": ["heat-uuid-003"] },
+            { "PlayerNo": "14", "AssignedHeatIds": ["heat-uuid-003"] },
+            { "PlayerNo": "15", "AssignedHeatIds": ["heat-uuid-003"] },
+            { "PlayerNo": "16", "AssignedHeatIds": ["heat-uuid-004"] },
+            { "PlayerNo": "17", "AssignedHeatIds": ["heat-uuid-004"] },
+            { "PlayerNo": "18", "AssignedHeatIds": ["heat-uuid-004"] },
+            { "PlayerNo": "19", "AssignedHeatIds": ["heat-uuid-004"] },
+            { "PlayerNo": "20", "AssignedHeatIds": ["heat-uuid-004"] }
+          ],
+          "DS_PRGDANCEs": [
+            {
+              "DS_DncNo": 1,
+              "DS_DncSts": "2",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "heat-uuid-001", "DS_HeatNo": 1, "DS_HeatSts": "3" },
+                { "DS_HeatId": "heat-uuid-002", "DS_HeatNo": 2, "DS_HeatSts": "3" },
+                { "DS_HeatId": "heat-uuid-003", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-004", "DS_HeatNo": 4, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 2,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "heat-uuid-001", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-002", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-003", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-004", "DS_HeatNo": 4, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 3,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "heat-uuid-001", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-002", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-003", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-004", "DS_HeatNo": 4, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 4,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "heat-uuid-001", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-002", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-003", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-004", "DS_HeatNo": 4, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 5,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "heat-uuid-001", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-002", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-003", "DS_HeatNo": 3, "DS_HeatSts": "0" },
+                { "DS_HeatId": "heat-uuid-004", "DS_HeatNo": 4, "DS_HeatSts": "0" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

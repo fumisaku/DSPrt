@@ -1,0 +1,11 @@
+{
+  "_comment": "PR_PRINT テストデータ — 出場者連絡票（AJS決勝用）",
+  "jobId": "test-ajs-final-001",
+  "layoutId": "PLAYER_NOTICE_AJS_FINAL_A4",
+  "copies": 1,
+  "data": {
+    "KbnNo": "2",
+    "RndNo": "7",
+    "DGrpNo": ""
+  }
+}

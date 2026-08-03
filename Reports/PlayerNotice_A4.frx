@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  出場者連絡票 (PLAYER_NOTICE_A4)
+
+  サンプル帳票 H1_SF.pdf に準拠したレイアウト:
+    - ヘッダー: 競技区分・種別 / ラウンドチェック行 / 出場組数・ピックアップ数・採点方式・種目
+    - 本体: ヒートを2列グリッドで配置（PageColumns.Count=2 を使用）
+      各ヒートブロック = グループヘッダー(ヒート番号) + DataBand(選手1人1行)
+
+  データ構造（DA_Master + DS_Status からサーバーが生成してフラット化して送信）:
+    Parameter: KbnNo, KbnName, RndName, ScrMtd, Dances, TotalEntries, PickupCount
+    DataTable "HeatPlayers": HeatNo(string), PlayerNo(string), PlayerName(string)
+
+  ※ RndFlags（ラウンドチェック行）はサーバー側で文字列として整形し
+     Parameter "RndFlagsText" として渡す想定
+     例: "●１次予選　○２次予選　○３次予選　○準決勝　○決勝"
+-->
+<Report ScriptLanguage="CSharp"
+        ReportInfo.Description="出場者連絡票"
+        ReportInfo.Author="DSPrt">
+
+  <Dictionary>
+    <Parameter Name="KbnNo"         DataType="System.String"/>
+    <Parameter Name="KbnName"       DataType="System.String"/>
+    <Parameter Name="RndName"       DataType="System.String"/>
+    <Parameter Name="RndFlagsText"  DataType="System.String"/>
+    <Parameter Name="ScrMtd"        DataType="System.String"/>
+    <Parameter Name="Dances"        DataType="System.String"/>
+    <Parameter Name="TotalEntries"  DataType="System.String"/>
+    <Parameter Name="PickupCount"   DataType="System.String"/>
+
+    <TableDataSource Name="HeatPlayers" DataType="System.Data.DataTable" Enabled="true">
+      <Column Name="HeatNo"     DataType="System.String"/>
+      <Column Name="PlayerNo"   DataType="System.String"/>
+      <Column Name="PlayerName" DataType="System.String"/>
+    </TableDataSource>
+  </Dictionary>
+
+  <!--
+    A4縦 余白10mm
+    Columns.Count=2 でヒートブロックを2列に並べる
+    Columns.Width はページ印刷幅の半分: (210-10-10)/2 = 95mm = 269px
+  -->
+  <ReportPage Name="Page1"
+              PaperWidth="210" PaperHeight="297"
+              LeftMargin="10" RightMargin="10"
+              TopMargin="10"  BottomMargin="10"
+              Columns.Count="2" Columns.Width="268">
+
+    <!-- ============================================================
+         帳票ヘッダー（1回のみ）
+         幅 = 2列全体 = 742px
+         ============================================================ -->
+    <ReportTitleBand Name="ReportTitle1" Width="742" Height="90">
+
+      <!-- 1行目: 競技区分・種別 -->
+      <TextObject Name="TxtKbnLabel"
+                  Left="0" Top="0" Width="742" Height="16"
+                  Text="競　技　区　分　・　種　別"
+                  Font="MS Gothic, 9pt" HorzAlign="Center"/>
+
+      <!-- 2行目: No. + 区分名 -->
+      <TextObject Name="TxtKbn"
+                  Left="0" Top="16" Width="742" Height="18"
+                  Text="No.　[KbnNo]　[KbnName]"
+                  Font="MS Gothic, 10pt, style=Bold" HorzAlign="Center"/>
+
+      <!-- 3行目: ラウンドチェック行（●=現在 ○=他） -->
+      <TextObject Name="TxtRndFlags"
+                  Left="0" Top="36" Width="742" Height="14"
+                  Text="[RndFlagsText]"
+                  Font="MS Gothic, 8pt" HorzAlign="Center"/>
+
+      <!-- 4行目: 帳票タイトル -->
+      <TextObject Name="TxtTitle"
+                  Left="0" Top="52" Width="742" Height="22"
+                  Text="出　場　者　連　絡　票"
+                  Font="MS Gothic, 14pt, style=Bold" HorzAlign="Center" VertAlign="Center"/>
+
+      <!-- 5行目: 出場組数 / ピックアップ / 採点方式 / 種目 -->
+      <TextObject Name="TxtEntries"
+                  Left="0" Top="76" Width="185" Height="14"
+                  Text="出場 [TotalEntries]組"
+                  Font="MS Gothic, 8pt"/>
+      <TextObject Name="TxtPickup"
+                  Left="185" Top="76" Width="185" Height="14"
+                  Text="ピックアップ [PickupCount] 組"
+                  Font="MS Gothic, 8pt"/>
+      <TextObject Name="TxtScrMtd"
+                  Left="370" Top="76" Width="185" Height="14"
+                  Text="[ScrMtd]"
+                  Font="MS Gothic, 8pt"/>
+      <TextObject Name="TxtDances"
+                  Left="555" Top="76" Width="187" Height="14"
+                  Text="競技種目: [Dances]"
+                  Font="MS Gothic, 8pt"/>
+    </ReportTitleBand>
+
+    <!-- ============================================================
+         グループヘッダー: ヒート番号が変わるたびに出力
+         （2列段組みにより自動的に隣の列に配置される）
+         ============================================================ -->
+    <GroupHeaderBand Name="GrpHeat" Width="268" Height="34"
+                     Condition="[HeatPlayers.HeatNo]"
+                     RepeatOnEveryPage="false">
+
+      <!-- ヒート番号タイトル -->
+      <TextObject Name="TxtHeatTitle"
+                  Left="0" Top="0" Width="268" Height="16"
+                  Text="[HeatPlayers.HeatNo] ヒート"
+                  Font="MS Gothic, 9pt, style=Bold"
+                  HorzAlign="Center"
+                  FillColor="LightGray" Border.Lines="All"/>
+
+      <!-- ヒートブロック内の列ヘッダー -->
+      <TextObject Name="TxtH_No"
+                  Left="0" Top="18" Width="60" Height="16"
+                  Text="背番号"
+                  Font="MS Gothic, 8pt, style=Bold"
+                  HorzAlign="Center" FillColor="Silver" Border.Lines="All"/>
+      <TextObject Name="TxtH_Name"
+                  Left="60" Top="18" Width="208" Height="16"
+                  Text="氏名"
+                  Font="MS Gothic, 8pt, style=Bold"
+                  HorzAlign="Center" FillColor="Silver" Border.Lines="All"/>
+    </GroupHeaderBand>
+
+    <!-- ============================================================
+         データバンド: 選手1人1行
+         ============================================================ -->
+    <DataBand Name="Data1" Width="268" Height="16" DataSource="HeatPlayers">
+      <TextObject Name="D_No"
+                  Left="0" Top="0" Width="60" Height="16"
+                  Text="[HeatPlayers.PlayerNo]"
+                  Font="MS Gothic, 8pt" HorzAlign="Center" Border.Lines="All"/>
+      <TextObject Name="D_Name"
+                  Left="60" Top="0" Width="208" Height="16"
+                  Text="[HeatPlayers.PlayerName]"
+                  Font="MS Gothic, 8pt" Border.Lines="All"/>
+    </DataBand>
+
+    <!-- ============================================================
+         グループフッター: ヒートとヒートの間に少し余白を入れる
+         ============================================================ -->
+    <GroupFooterBand Name="GrpHeatFtr" Width="268" Height="6"/>
+
+    <!-- ============================================================
+         ページフッター
+         ============================================================ -->
+    <PageFooterBand Name="PageFooter1" Width="742" Height="16">
+      <TextObject Name="TxtPageNo"
+                  Left="600" Top="0" Width="142" Height="14"
+                  Text="[PageN] / [TotalPages]"
+                  Font="MS Gothic, 8pt" HorzAlign="Right"/>
+    </PageFooterBand>
+
+  </ReportPage>
+</Report>

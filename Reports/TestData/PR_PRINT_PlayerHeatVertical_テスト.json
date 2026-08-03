@@ -1,0 +1,13 @@
+{
+  "_comment": "PR_PRINT テストデータ — 出場者ヒート表（縦・A4）テスト用",
+  "_note": "KbnNo=1, RndNo=1 の1次予選。4ヒート・20組出場。DA_Master/DS_Status は既存テストデータを流用。",
+  "JobId": "TEST_HEAT_VERTICAL_001",
+  "LayoutId": "PLAYER_HEAT_VERTICAL_A4",
+  "Copies": 1,
+  "Priority": 2,
+  "data": {
+    "KbnNo": "1",
+    "RndNo": "1",
+    "DGrpNo": ""
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "WebSocketSettings": {
+    "ServerIpAddress": "10.3.2.108",
+    "ServerPort": 7269,
+    "InstanceId": "DSPrt_General",
+    "DisplayName": "通常帳票プリンター",
+    "OrgCd": "JS",
+    "ReconnectIntervalMs": 10000,
+    "ConnectionTimeoutMs": 30000,
+    "AutoReconnect": true
+  },
+  "LogSettings": {
+    "LogLevel": 3,
+    "LogPath": "./Logs"
+  },
+  "PrintSettings": {
+    "DefaultPrinterName": "Microsoft Print to PDF",
+    "AwardPrinterName": "",
+    "SpoolDirectory": "./Spool",
+    "MaxQueueSize": 50,
+    "JobLogMaxCount": 200
+  },
+  "Layouts": [
+    {
+      "LayoutId": "PLAYER_LIST_A4",
+      "FrxPath": "./Reports/PlayerList_A4.frx",
+      "DataType": "DA_Master",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "TwoSidedLongEdge",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "KBNLIST_A4",
+      "FrxPath": "./Reports/KbnList_A4.frx",
+      "DataType": "DA_Master",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "CHECK_SHEET_A4",
+      "FrxPath": "./Reports/CheckSheet_A4.frx",
+      "DataType": "DA_Master",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "JUDGE_TEAM_A4",
+      "FrxPath": "./Reports/JudgeTeam_A4.frx",
+      "DataType": "DA_Master",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "JDSF_FEE_A4",
+      "FrxPath": "./Reports/JdsfFee_A4.frx",
+      "DataType": "DA_Master",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "HEAT_UP_LIST_A4",
+      "FrxPath": "./Reports/HeatUpList_A4.frx",
+      "DataType": "DS_Status",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "TIMETABLE_A4",
+      "FrxPath": "./Reports/Timetable_A4.frx",
+      "DataType": "DS_Status",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "JUDGE_ASSIGN_A4",
+      "FrxPath": "./Reports/JudgeAssign_A4.frx",
+      "DataType": "DS_Status",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "FINAL_ENTRY_A4",
+      "FrxPath": "./Reports/FinalEntry_A4.frx",
+      "DataType": "DS_Status",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "RESULT_LIST_A4",
+      "FrxPath": "./Reports/ResultList_A4.frx",
+      "DataType": "DV_Result",
+      "PrinterName": "",
+      "Copies": 2,
+      "Duplex": "TwoSidedLongEdge",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "FINAL_RESULT_A4",
+      "FrxPath": "./Reports/FinalResult_A4.frx",
+      "DataType": "DV_Result",
+      "PrinterName": "",
+      "Copies": 2,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "SKATING_RESULT_A4",
+      "FrxPath": "./Reports/SkatingResult_A4.frx",
+      "DataType": "DV_Result",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "PLAYER_NOTICE_A4",
+      "FrxPath": "./Reports/PlayerNotice_A4.frx",
+      "DataType": "DA_Master+DS_Status",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4",
+      "FrxPath": "./Reports/ヒート表_横.frx",
+      "DataType": "DA_Master+DS_Status+Horizontal",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "PLAYER_HEAT_VERTICAL_A4",
+      "FrxPath": "./Reports/出場者ヒート表_縦.frx",
+      "DataType": "DA_Master+DS_Status+Vertical",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "PLAYER_NOTICE_AJS_FINAL_A4",
+      "FrxPath": "./Reports/出場者連絡票_AJS決勝.frx",
+      "DataType": "DA_Master+DS_Status+AJS_Final",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "FINAL_ENTRY_LIST_A4",
+      "FrxPath": "./Reports/決勝進出者名簿_横.frx",
+      "DataType": "DA_Master+DS_Status+Final_Entry",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "SEMI_FINAL_ENTRY_LIST_A4",
+      "FrxPath": "./Reports/準決勝進出者名簿_縦.frx",
+      "DataType": "DA_Master+DS_Status+Semi_Final_Entry",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "FINAL_AWARD_LIST_A4",
+      "FrxPath": "./Reports/決勝入賞者名簿_縦.frx",
+      "DataType": "DA_Master+DS_Status+DV_Result+Final_Award",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "AJS_SCORE_LIST_A4",
+      "FrxPath": "./Reports/得点一覧表_AJS_横.frx",
+      "DataType": "DA_Master+DS_Status+DV_Result+AJS_Score",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "CHECK_SCORE_LIST_A4",
+      "FrxPath": "./Reports/得点一覧表_チェック法_横.frx",
+      "DataType": "DA_Master+DS_Status+DV_Result+Check_Score",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "CHECK_SCORE_LIST_A4_PORT",
+      "FrxPath": "./Reports/得点一覧表_チェック法_縦.frx",
+      "DataType": "DA_Master+DS_Status+DV_Result+Check_Score",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "JUDGE_SHEET_A4",
+      "FrxPath": "./Reports/ジャッジ票_横.frx",
+      "DataType": "DA_Master+DS_Status+Judge_Sheet",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    }
+  ]
+}

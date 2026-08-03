@@ -1,0 +1,61 @@
+{
+  "WebSocketSettings": {
+    "ServerIpAddress": "10.3.2.108",
+    "ServerPort": 7269,
+    "InstanceId": "DSPrt_Award",
+    "DisplayName": "表彰状プリンター",
+    "OrgCd": "JS",
+    "ReconnectIntervalMs": 10000,
+    "ConnectionTimeoutMs": 30000,
+    "AutoReconnect": true
+  },
+  "LogSettings": {
+    "LogLevel": 3,
+    "LogPath": "./Logs"
+  },
+  "PrintSettings": {
+    "DefaultPrinterName": "Canon TR8600",
+    "AwardPrinterName": "Canon TR8600 Award",
+    "SpoolDirectory": "./Spool",
+    "MaxQueueSize": 50,
+    "JobLogMaxCount": 200
+  },
+  "Layouts": [
+    {
+      "LayoutId": "AWARD_CERTIFICATE",
+      "FrxPath": "./Reports/Award_Certificate.frx",
+      "DataType": "DV_Result",
+      "PrinterName": "Canon TR8600 Award",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "FINAL_RESULT_A4",
+      "FrxPath": "./Reports/FinalResult_A4.frx",
+      "DataType": "DV_Result",
+      "PrinterName": "Canon TR8600",
+      "Copies": 2,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "RESULT_LIST_A4",
+      "FrxPath": "./Reports/ResultList_A4.frx",
+      "DataType": "DV_Result",
+      "PrinterName": "Canon TR8600",
+      "Copies": 2,
+      "Duplex": "TwoSidedLongEdge",
+      "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "SKATING_RESULT_A4",
+      "FrxPath": "./Reports/SkatingResult_A4.frx",
+      "DataType": "DV_Result",
+      "PrinterName": "Canon TR8600",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
+    }
+  ]
+}

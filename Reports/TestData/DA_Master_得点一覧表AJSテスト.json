@@ -1,0 +1,71 @@
+{
+  "_comment": "DA_Master テストデータ — 得点一覧表(AJS) テスト（6組・W/V/F/T/Q 5種目・準決勝→決勝）",
+  "DA_OrgCD": "JS",
+  "DA_CompNo": "TEST010",
+  "DA_CompName": "テスト競技会 2026",
+  "DA_CompDate": "2026-08-01",
+  "DA_CompPlace": "テスト会場",
+  "DB_KUBUNs": [
+    {
+      "DB_KbnNo": "1",
+      "DB_KbnCd": "PD",
+      "DB_KbnName": "PDグランプリ スタンダード",
+      "DB_KbnDsipName": "PDグランプリ スタンダード",
+      "DC_ROUNDs": [
+        {
+          "DC_RndNo": "1",
+          "DC_RndName_J": "1次予選",
+          "DC_RndUpPln": 20,
+          "DC_RndScrMtd": "AJS3.1J for PD",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "ワルツ",         "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "ウィーンワルツ", "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "スローフォックス", "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "タンゴ",         "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "クイックステップ", "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        {
+          "DC_RndNo": "2",
+          "DC_RndName_J": "準決勝",
+          "DC_RndUpPln": 6,
+          "DC_RndScrMtd": "AJS3.1J for PD",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "ワルツ",         "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "ウィーンワルツ", "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "スローフォックス", "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "タンゴ",         "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "クイックステップ", "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        {
+          "DC_RndNo": "3",
+          "DC_RndName_J": "決勝",
+          "DC_RndUpPln": 0,
+          "DC_RndScrMtd": "AJS3.1J for PD",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "ワルツ",         "DE_DncSG": "Solo" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "ウィーンワルツ", "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "スローフォックス", "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "タンゴ",         "DE_DncSG": "Solo" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "クイックステップ", "DE_DncSG": "Group" }
+            ]
+          }]
+        }
+      ]
+    }
+  ],
+  "DM_MEMBERs": [
+    { "DM_UkeNo": 5,  "DM_MASTERs": [{ "DM_No": "5",  "DM_LDispName": "山田 太郎",    "DM_PDispName": "山田 花子"   }] },
+    { "DM_UkeNo": 11, "DM_MASTERs": [{ "DM_No": "11", "DM_LDispName": "長谷川 修",    "DM_PDispName": "長谷川 美奈" }] },
+    { "DM_UkeNo": 18, "DM_MASTERs": [{ "DM_No": "18", "DM_LDispName": "伊藤 隆",      "DM_PDispName": "伊藤 香織"   }] },
+    { "DM_UkeNo": 27, "DM_MASTERs": [{ "DM_No": "27", "DM_LDispName": "サンチェス アレハンドロ", "DM_PDispName": "サンチェス マリア" }] },
+    { "DM_UkeNo": 30, "DM_MASTERs": [{ "DM_No": "30", "DM_LDispName": "中島 浩二",    "DM_PDispName": "中島 直子"   }] },
+    { "DM_UkeNo": 38, "DM_MASTERs": [{ "DM_No": "38", "DM_LDispName": "高田 一郎",    "DM_PDispName": "高田 順子"   }] }
+  ]
+}

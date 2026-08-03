@@ -1,0 +1,9 @@
+{
+  "_comment": "PR_PRINT 電文のテストデータ — PLAYER_LIST_A4（選手一覧表）",
+  "jobId": "JS001_PLAYER_20250601100000_001",
+  "layoutId": "PLAYER_LIST_A4",
+  "copies": 1,
+  "priority": 2,
+  "data": null,
+  "_note": "data=null の場合、DSPrt は DataManager の DA_Master キャッシュを使用"
+}

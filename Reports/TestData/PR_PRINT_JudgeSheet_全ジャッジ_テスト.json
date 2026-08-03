@@ -1,0 +1,14 @@
+{
+  "_comment": "PR_PRINT テストデータ — JUDGE_SHEET_A4（ジャッジ票・横向き・全ジャッジ一括印刷）",
+  "_note": "JudgeCd を省略（または空文字）にすると、DA_Master の DJ_JUDGEs に登録されている全ジャッジ分を一括印刷する。印刷順序: ジャッジA全種目 → ジャッジB全種目 → ... 種目数×ジャッジ数のページ数になる。DA_Master + DS_Status はキャッシュから参照する（DA_Master_チェック法テスト.json + DS_Status_出場者連絡票テスト.json 等を使用）。",
+  "jobId": "JS001_JUDGE_SHEET_ALL_20250601120000_001",
+  "layoutId": "JUDGE_SHEET_A4",
+  "copies": 1,
+  "priority": 2,
+  "data": {
+    "KbnNo": "1",
+    "RndNo": "1",
+    "DGrpNo": "",
+    "JudgeCd": ""
+  }
+}

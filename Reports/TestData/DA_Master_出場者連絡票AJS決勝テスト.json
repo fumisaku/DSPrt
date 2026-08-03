@@ -1,0 +1,103 @@
+{
+  "_comment": "DA_Master テストデータ — 出場者連絡票（AJS決勝用）テスト用",
+  "DA_OrgCD": "JS",
+  "DA_CompNo": "TEST002",
+  "DA_CompName": "テスト競技会 2026",
+  "DA_CompDate": "2026-08-01",
+  "DA_CompPlace": "テスト会場",
+  "DB_KUBUNs": [
+    {
+      "DB_KbnNo": "2",
+      "DB_KbnCd": "GM",
+      "DB_KbnName": "グランプリ スタンダード",
+      "DB_KbnDsipName": "グランプリ スタンダード",
+      "DC_ROUNDs": [
+        { "DC_RndNo": "1", "DC_RndName_J": "1次予選", "DC_RndUpPln": 12, "DC_RndScrMtd": "AJS30J",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "Waltz",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "Viennese Waltz",  "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "Slow Foxtrot",    "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "Tango",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "Quickstep",       "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        { "DC_RndNo": "2", "DC_RndName_J": "2次予選", "DC_RndUpPln": 6,  "DC_RndScrMtd": "AJS30J",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "Waltz",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "Viennese Waltz",  "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "Slow Foxtrot",    "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "Tango",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "Quickstep",       "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        { "DC_RndNo": "3", "DC_RndName_J": "3次予選", "DC_RndUpPln": 6,  "DC_RndScrMtd": "AJS30J",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "Waltz",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "Viennese Waltz",  "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "Slow Foxtrot",    "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "Tango",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "Quickstep",       "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        { "DC_RndNo": "4", "DC_RndName_J": "4次予選", "DC_RndUpPln": 6,  "DC_RndScrMtd": "AJS30J",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "Waltz",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "Viennese Waltz",  "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "Slow Foxtrot",    "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "Tango",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "Quickstep",       "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        { "DC_RndNo": "5", "DC_RndName_J": "準決勝", "DC_RndUpPln": 6,  "DC_RndScrMtd": "AJS30J",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "Waltz",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "Viennese Waltz",  "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "Slow Foxtrot",    "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "Tango",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "Quickstep",       "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        { "DC_RndNo": "6", "DC_RndName_J": "下位決勝", "DC_RndUpPln": 0,  "DC_RndScrMtd": "AJS30J",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "Waltz",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "Viennese Waltz",  "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "Slow Foxtrot",    "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "Tango",           "DE_DncSG": "Group" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "Quickstep",       "DE_DncSG": "Group" }
+            ]
+          }]
+        },
+        { "DC_RndNo": "7", "DC_RndName_J": "決勝", "DC_RndUpPln": 0,  "DC_RndScrMtd": "AJS30J",
+          "DD_DGRPs": [{ "DD_DGrpNo": "1", "DD_DGrpName": "スタンダード5種目",
+            "DE_DANCEs": [
+              { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "Waltz",           "DE_DncSG": "Solo" },
+              { "DE_DncNo": 2, "DE_DncCd": "V",  "DE_DncNm_J": "Viennese Waltz",  "DE_DncSG": "Group" },
+              { "DE_DncNo": 3, "DE_DncCd": "F",  "DE_DncNm_J": "Slow Foxtrot",    "DE_DncSG": "Group" },
+              { "DE_DncNo": 4, "DE_DncCd": "T",  "DE_DncNm_J": "Tango",           "DE_DncSG": "Solo" },
+              { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "Quickstep",       "DE_DncSG": "Group" }
+            ]
+          }]
+        }
+      ]
+    }
+  ],
+  "DM_MEMBERs": [
+    { "DM_UkeNo": 11, "DM_MASTERs": [{ "DM_No": "11", "DM_LDispName": "長谷川 修",   "DM_LKana": "ハセガワ オサム",   "DM_PDispName": "長谷川 美奈", "DM_PKana": "ハセガワ ミナ",   "DM_LCtry": "京都DC",   "DM_PCtry": "京都DC"   }] },
+    { "DM_UkeNo": 18, "DM_MASTERs": [{ "DM_No": "18", "DM_LDispName": "伊藤 隆",     "DM_LKana": "イトウ タカシ",     "DM_PDispName": "伊藤 香織",   "DM_PKana": "イトウ カオリ",   "DM_LCtry": "横浜SC",   "DM_PCtry": "横浜SC"   }] },
+    { "DM_UkeNo": 27, "DM_MASTERs": [{ "DM_No": "27", "DM_LDispName": "松本 健",     "DM_LKana": "マツモト ケン",     "DM_PDispName": "松本 由紀",   "DM_PKana": "マツモト ユキ",   "DM_LCtry": "大阪SC",   "DM_PCtry": "大阪SC"   }] },
+    { "DM_UkeNo": 30, "DM_MASTERs": [{ "DM_No": "30", "DM_LDispName": "中島 浩二",   "DM_LKana": "ナカジマ コウジ",   "DM_PDispName": "中島 直子",   "DM_PKana": "ナカジマ ナオコ", "DM_LCtry": "東京SC",   "DM_PCtry": "東京SC"   }] },
+    { "DM_UkeNo": 32, "DM_MASTERs": [{ "DM_No": "32", "DM_LDispName": "田村 誠一",   "DM_LKana": "タムラ セイイチ",   "DM_PDispName": "田村 美恵",   "DM_PKana": "タムラ ミエ",     "DM_LCtry": "埼玉DC",   "DM_PCtry": "埼玉DC"   }] },
+    { "DM_UkeNo": 38, "DM_MASTERs": [{ "DM_No": "38", "DM_LDispName": "高田 一郎",   "DM_LKana": "タカダ イチロウ",   "DM_PDispName": "高田 順子",   "DM_PKana": "タカダ ジュンコ", "DM_LCtry": "名古屋SC", "DM_PCtry": "名古屋SC" }] }
+  ]
+}

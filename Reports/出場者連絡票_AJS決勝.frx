@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="07/31/2026 00:00:00" ReportInfo.Modified="07/31/2026 00:00:00" ReportInfo.CreatorVersion="2026.2.0.0">
+  <Dictionary>
+    <TableDataSource Name="AjsFinalDummy" ReferenceName="AjsFinalDummy" DataType="System.Int32" Enabled="true">
+      <Column Name="Idx" DataType="System.Int32"/>
+    </TableDataSource>
+  </Dictionary>
+  <ReportPage Name="Page1" PaperWidth="210" PaperHeight="297" RawPaperSize="9" Watermark.Font="MS UI Gothic, 60pt">
+    <ReportTitleBand Name="ReportTitle1" Width="718.2" Height="28.35">
+      <TextObject Name="Title" Width="718.2" Height="28.35" Dock="Fill" Text="出場者連絡票" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 14.25pt"/>
+      <TextObject Name="SendTo" Left="557.55" Top="9.45" Width="132.3" Height="18.9" Text="【　司会　】" HorzAlign="Right" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+    </ReportTitleBand>
+    <PageHeaderBand Name="PageHeader1" Top="30.32" Width="718.2" Height="103.95">
+      <TableObject Name="Table1" Left="37.8" Top="9.45" Width="313.74" Height="85.05">
+        <TableColumn Name="Column1" Width="44.01"/>
+        <TableColumn Name="Column2" Width="44.01"/>
+        <TableColumn Name="Column3" Width="44.01"/>
+        <TableColumn Name="Column4" Width="44.01"/>
+        <TableColumn Name="Column6" Width="45.9"/>
+        <TableColumn Name="Column7" Width="45.9"/>
+        <TableColumn Name="Column5" Width="45.9"/>
+        <TableRow Name="Row1">
+          <TableCell Name="Cell1" Font="MS UI Gothic, 9pt" ColSpan="7"><TextObject Name="Text1" Width="313.74" Height="18.9" Dock="Fill" Border.Lines="All" Text="競　技　区　分　・　種　別" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell2" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell3" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell4" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell28" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell31" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell25" Font="MS UI Gothic, 9pt"/>
+        </TableRow>
+        <TableRow Name="Row4" Height="37.8">
+          <TableCell Name="Cell16" Font="MS UI Gothic, 9pt"><TextObject Name="PRGNO" Width="44.01" Height="37.8" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 12pt"/></TableCell>
+          <TableCell Name="Cell17" Font="MS UI Gothic, 9pt" ColSpan="6"><TextObject Name="KubunName" Width="269.73" Height="37.8" Dock="Fill" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 12pt"/></TableCell>
+          <TableCell Name="Cell18" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell19" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell29" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell32" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell26" Font="MS UI Gothic, 9pt"/>
+        </TableRow>
+        <TableRow Name="Row5" Height="28.35">
+          <TableCell Name="Cell21" Font="MS UI Gothic, 9pt"><TextObject Name="Round1" Width="44.01" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/></TableCell>
+          <TableCell Name="Cell22" Font="MS UI Gothic, 9pt"><TextObject Name="Round2" Width="44.01" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/></TableCell>
+          <TableCell Name="Cell23" Font="MS UI Gothic, 9pt"><TextObject Name="Round3" Width="44.01" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/></TableCell>
+          <TableCell Name="Cell24" Font="MS UI Gothic, 9pt"><TextObject Name="Round4" Width="44.01" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/></TableCell>
+          <TableCell Name="Cell30" Font="MS UI Gothic, 9pt"><TextObject Name="Round5" Width="45.9"  Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/></TableCell>
+          <TableCell Name="Cell33" Font="MS UI Gothic, 9pt"><TextObject Name="Round6" Width="45.9"  Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/></TableCell>
+          <TableCell Name="Cell27" Font="MS UI Gothic, 9pt"><TextObject Name="Round7" Width="45.9"  Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/></TableCell>
+        </TableRow>
+      </TableObject>
+      <TableObject Name="Table2" Left="359.1" Top="9.45" Width="132.28" Height="85.05">
+        <TableColumn Name="Column8" Width="66.14"/>
+        <TableColumn Name="Column9" Width="66.14"/>
+        <TableRow Name="Row6" Height="28.35">
+          <TableCell Name="Cell34" Font="MS UI Gothic, 9pt"><TextObject Name="TotalHeat" Width="66.14" Height="28.35" Dock="Fill" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell35" Font="MS UI Gothic, 9pt"><TextObject Name="TotalComp" Width="66.14" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+        </TableRow>
+        <TableRow Name="Row7" Height="28.35">
+          <TableCell Name="Cell39" Font="MS UI Gothic, 9pt" ColSpan="2"><TextObject Name="UP" Width="132.28" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell40" Font="MS UI Gothic, 9pt"/>
+        </TableRow>
+        <TableRow Name="Row8" Height="28.35">
+          <TableCell Name="Cell44" Font="MS UI Gothic, 9pt" ColSpan="2"><TextObject Name="ScoreMethod" Width="132.28" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell45" Font="MS UI Gothic, 9pt"/>
+        </TableRow>
+      </TableObject>
+      <TableObject Name="Table3" Left="500.85" Top="9.45" Width="189" Height="85.05">
+        <TableColumn Name="Column10" Width="37.8"/>
+        <TableColumn Name="Column11" Width="37.8"/>
+        <TableColumn Name="Column12" Width="37.8"/>
+        <TableColumn Name="Column13" Width="37.8"/>
+        <TableColumn Name="Column14" Width="37.8"/>
+        <TableRow Name="Row9" Height="28.35">
+          <TableCell Name="Cell46" Font="MS UI Gothic, 9pt" ColSpan="5"><TextObject Name="Text3" Width="189" Height="28.35" Dock="Fill" Border.Lines="All" Text="競技種目" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell47" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell48" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell49" Font="MS UI Gothic, 9pt"/>
+          <TableCell Name="Cell50" Font="MS UI Gothic, 9pt"/>
+        </TableRow>
+        <TableRow Name="Row10" Height="28.35">
+          <TableCell Name="Cell51" Font="MS UI Gothic, 9pt"><TextObject Name="DS1" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell52" Font="MS UI Gothic, 9pt"><TextObject Name="DS2" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell53" Font="MS UI Gothic, 9pt"><TextObject Name="DS3" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell54" Font="MS UI Gothic, 9pt"><TextObject Name="DS4" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell55" Font="MS UI Gothic, 9pt"><TextObject Name="DS5" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+        </TableRow>
+        <TableRow Name="Row11" Height="28.35">
+          <TableCell Name="Cell56" Font="MS UI Gothic, 9pt"><TextObject Name="DC1" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell57" Font="MS UI Gothic, 9pt"><TextObject Name="DC2" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell58" Font="MS UI Gothic, 9pt"><TextObject Name="DC3" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell59" Font="MS UI Gothic, 9pt"><TextObject Name="DC4" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="Cell60" Font="MS UI Gothic, 9pt"><TextObject Name="DC5" Width="37.8" Height="28.35" Dock="Fill" Border.Lines="All" Text="" Padding="0, 0, 0, 0" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+        </TableRow>
+      </TableObject>
+    </PageHeaderBand>
+    <DataBand Name="Data1" DataSource="AjsFinalDummy" Top="142.62" Width="718.2" Height="756">
+          <TextObject Name="Row_01_L" Left="37.8" Top="0" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_01_R" Left="113.4" Top="0" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_02_L" Left="37.8" Top="18.9" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_02_R" Left="113.4" Top="18.9" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_03_L" Left="37.8" Top="37.8" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_03_R" Left="113.4" Top="37.8" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_04_L" Left="37.8" Top="56.7" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_04_R" Left="113.4" Top="56.7" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_05_L" Left="37.8" Top="75.6" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_05_R" Left="113.4" Top="75.6" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_06_L" Left="37.8" Top="94.5" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_06_R" Left="113.4" Top="94.5" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_07_L" Left="37.8" Top="113.4" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_07_R" Left="113.4" Top="113.4" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_08_L" Left="37.8" Top="132.3" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_08_R" Left="113.4" Top="132.3" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_09_L" Left="37.8" Top="151.2" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_09_R" Left="113.4" Top="151.2" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_10_L" Left="37.8" Top="170.1" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_10_R" Left="113.4" Top="170.1" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_11_L" Left="37.8" Top="189" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_11_R" Left="113.4" Top="189" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_12_L" Left="37.8" Top="207.9" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_12_R" Left="113.4" Top="207.9" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_13_L" Left="37.8" Top="226.8" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_13_R" Left="113.4" Top="226.8" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_14_L" Left="37.8" Top="245.7" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_14_R" Left="113.4" Top="245.7" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_15_L" Left="37.8" Top="264.6" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_15_R" Left="113.4" Top="264.6" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_16_L" Left="37.8" Top="283.5" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_16_R" Left="113.4" Top="283.5" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_17_L" Left="37.8" Top="302.4" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_17_R" Left="113.4" Top="302.4" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_18_L" Left="37.8" Top="321.3" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_18_R" Left="113.4" Top="321.3" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_19_L" Left="37.8" Top="340.2" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_19_R" Left="113.4" Top="340.2" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_20_L" Left="37.8" Top="359.1" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_20_R" Left="113.4" Top="359.1" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_21_L" Left="37.8" Top="378" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_21_R" Left="113.4" Top="378" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_22_L" Left="37.8" Top="396.9" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_22_R" Left="113.4" Top="396.9" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_23_L" Left="37.8" Top="415.8" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_23_R" Left="113.4" Top="415.8" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_24_L" Left="37.8" Top="434.7" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_24_R" Left="113.4" Top="434.7" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_25_L" Left="37.8" Top="453.6" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_25_R" Left="113.4" Top="453.6" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_26_L" Left="37.8" Top="472.5" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_26_R" Left="113.4" Top="472.5" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_27_L" Left="37.8" Top="491.4" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_27_R" Left="113.4" Top="491.4" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_28_L" Left="37.8" Top="510.3" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_28_R" Left="113.4" Top="510.3" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_29_L" Left="37.8" Top="529.2" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_29_R" Left="113.4" Top="529.2" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_30_L" Left="37.8" Top="548.1" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_30_R" Left="113.4" Top="548.1" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_31_L" Left="37.8" Top="567" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_31_R" Left="113.4" Top="567" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_32_L" Left="37.8" Top="585.9" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_32_R" Left="113.4" Top="585.9" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_33_L" Left="37.8" Top="604.8" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_33_R" Left="113.4" Top="604.8" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_34_L" Left="37.8" Top="623.7" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_34_R" Left="113.4" Top="623.7" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_35_L" Left="37.8" Top="642.6" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_35_R" Left="113.4" Top="642.6" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_36_L" Left="37.8" Top="661.5" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_36_R" Left="113.4" Top="661.5" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_37_L" Left="37.8" Top="680.4" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_37_R" Left="113.4" Top="680.4" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_38_L" Left="37.8" Top="699.3" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_38_R" Left="113.4" Top="699.3" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_39_L" Left="37.8" Top="718.2" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_39_R" Left="113.4" Top="718.2" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_40_L" Left="37.8" Top="737.1" Width="75.6" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+          <TextObject Name="Row_40_R" Left="113.4" Top="737.1" Width="567" Height="18.9" Text="" Visible="false" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+    </DataBand>
+    <PageFooterBand Name="PageFooter1" Top="900.62" Width="718.2" Height="18.9">
+      <TextObject Name="PageNo" Left="18.9" Width="680.4" Height="18.9" Text="[PageN] / [TotalPages]" HorzAlign="Right" Font="MS UI Gothic, 9pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

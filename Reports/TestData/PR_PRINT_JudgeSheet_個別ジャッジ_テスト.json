@@ -1,0 +1,14 @@
+{
+  "_comment": "PR_PRINT テストデータ — JUDGE_SHEET_A4（ジャッジ票・横向き・個別ジャッジ指定印刷）",
+  "_note": "JudgeCd に特定ジャッジの記号（例: 'A'）を指定すると、そのジャッジ分のみ全種目ページを印刷する。種目数ページ分が出力される。DA_Master + DS_Status はキャッシュから参照する。",
+  "jobId": "JS001_JUDGE_SHEET_A_20250601120000_001",
+  "layoutId": "JUDGE_SHEET_A4",
+  "copies": 1,
+  "priority": 2,
+  "data": {
+    "KbnNo": "1",
+    "RndNo": "1",
+    "DGrpNo": "",
+    "JudgeCd": "A"
+  }
+}

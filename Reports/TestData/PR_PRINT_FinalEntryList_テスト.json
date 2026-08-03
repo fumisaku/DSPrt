@@ -1,0 +1,11 @@
+{
+  "_comment": "PR_PRINT テストデータ — 決勝進出者名簿",
+  "jobId": "test-final-entry-001",
+  "layoutId": "FINAL_ENTRY_LIST_A4",
+  "copies": 1,
+  "data": {
+    "KbnNo": "2",
+    "RndNo": "4",
+    "DGrpNo": ""
+  }
+}

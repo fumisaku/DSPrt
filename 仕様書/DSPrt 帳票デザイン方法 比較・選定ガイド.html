@@ -1,0 +1,400 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2328; background: #ffffff; padding: 32px 16px; }
+  .container { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; padding-bottom: 4px; border-bottom: 2px solid #3b82d4; color: #3b82d4; }
+  h3 { font-size: 14px; font-weight: 700; margin: 16px 0 6px; }
+  p { margin-bottom: 8px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 4px; }
+  .updated  { color: #57606a; font-size: 12px; margin-bottom: 24px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px; margin-right: 4px; }
+  .badge-blue   { background: #3b82d4; color: #fff; }
+  .badge-green  { background: #2da44e; color: #fff; }
+  .badge-orange { background: #d4600a; color: #fff; }
+  .badge-red    { background: #cf222e; color: #fff; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { background: #f7f8fa; border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-weight: 700; }
+  td { border: 1px solid #e5e7eb; padding: 8px 10px; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  pre { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 4px; padding: 14px 16px; font-family: "Cascadia Code","Consolas",monospace; font-size: 12px; overflow-x: auto; margin: 10px 0; line-height: 1.5; }
+  code { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 3px; padding: 1px 5px; font-family: "Cascadia Code","Consolas",monospace; font-size: 12px; }
+  .card { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 16px; margin: 10px 0; }
+  ul { margin: 6px 0 6px 20px; }
+  li { margin: 3px 0; }
+  .recommend { background: #f0fdf4; border: 2px solid #2da44e; border-radius: 6px; padding: 16px; margin: 12px 0; }
+  .recommend-title { font-weight: 700; color: #166534; font-size: 15px; margin-bottom: 8px; }
+  .alert  { background: #fff7ed; border: 2px solid #d4600a; border-radius: 6px; padding: 14px 16px; margin: 12px 0; }
+  .alert-title { font-weight: 700; color: #9a3412; font-size: 14px; margin-bottom: 8px; }
+  .note   { background: #fff8dc; border-left: 3px solid #d4a017; padding: 10px 14px; margin: 12px 0; font-size: 13px; border-radius: 0 4px 4px 0; }
+  .info   { background: #eff6ff; border-left: 3px solid #3b82d4; padding: 10px 14px; margin: 12px 0; font-size: 13px; border-radius: 0 4px 4px 0; }
+  .warn   { background: #fff7ed; border-left: 3px solid #d4600a; padding: 10px 14px; margin: 12px 0; font-size: 13px; border-radius: 0 4px 4px 0; }
+  .ok     { background: #f0fdf4; border-left: 3px solid #2da44e; padding: 10px 14px; margin: 12px 0; font-size: 13px; border-radius: 0 4px 4px 0; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .criteria-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green  { background: #2da44e; }
+  .dot-yellow { background: #d4a017; }
+  .dot-red    { background: #cf222e; }
+  .step-row { display: flex; gap: 12px; margin: 8px 0; align-items: flex-start; }
+  .step-num { flex-shrink:0; width:26px; height:26px; background:#3b82d4; color:#fff; font-weight:700; font-size:13px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .flow-box { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+  .flow-step { flex:1; min-width:100px; border-radius:4px; padding:10px; text-align:center; margin:4px; font-size:12px; }
+  .flow-arrow { display:flex; align-items:center; color:#57606a; font-size:18px; margin:4px; }
+  .footer { text-align: center; font-size: 12px; color: #57606a; margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+  hr.divider { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+  .tag-ok  { display:inline-block; font-size:11px; font-weight:700; background:#dcfce7; color:#166534; border:1px solid #86efac; border-radius:3px; padding:1px 6px; }
+  .tag-ng  { display:inline-block; font-size:11px; font-weight:700; background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; border-radius:3px; padding:1px 6px; }
+  .tag-alt { display:inline-block; font-size:11px; font-weight:700; background:#fef9c3; color:#713f12; border:1px solid #fde047; border-radius:3px; padding:1px 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>DSPrt 帳票デザイン方法 選定ガイド</h1>
+  <p class="subtitle">環境: .NET 8 / WPF / Windows 11 | FastReport.OpenSource 2025.1.0</p>
+  <p class="updated">最終更新: 2025-07 ― Phase 2/3 実装後に FastReport OS 版の制限を反映</p>
+
+  <div class="alert">
+    <div class="alert-title">&#x26A0;&#xFE0F; 重要: FastReport.OpenSource（OS 版）の制限（実装で確認済み）</div>
+    <p style="font-size:13px;margin-bottom:10px">Phase 2/3 実装中に判明した事実。設計時の想定と異なる部分があります。</p>
+    <table style="margin:0">
+      <thead><tr><th>機能</th><th>実装前の想定</th><th>実際の状況</th><th>DSPrt での対処</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>Report.Print()</code></td>
+          <td>利用可能</td>
+          <td><span class="tag-ng">存在しない</span></td>
+          <td><code>ImageExport(PNG)</code> &#x2192; <code>PrintDocument</code></td>
+        </tr>
+        <tr>
+          <td><code>Report.PrintSettings</code></td>
+          <td>利用可能</td>
+          <td><span class="tag-ng">存在しない</span></td>
+          <td><code>PrintDocument.PrinterSettings</code> で設定</td>
+        </tr>
+        <tr>
+          <td><code>DesignerControl</code> クラス</td>
+          <td>WPF 内蔵可能</td>
+          <td><span class="tag-ng">存在しない</span></td>
+          <td>.frx をデフォルトアプリで外部起動</td>
+        </tr>
+        <tr>
+          <td>PDF エクスポート</td>
+          <td><code>FastReport.Export.Pdf</code> 利用可能</td>
+          <td><span class="tag-ng">存在しない</span></td>
+          <td><code>HTMLExport</code> でプレビュー HTML 生成</td>
+        </tr>
+        <tr>
+          <td>NuGet: <code>FastReport.OpenSource.Export.Pdf</code></td>
+          <td>存在する</td>
+          <td><span class="tag-ng">NuGet に未公開</span></td>
+          <td>&#x2014;</td>
+        </tr>
+        <tr>
+          <td>利用可能なバージョン</td>
+          <td>2024.4.0 指定</td>
+          <td><span class="tag-alt">2025.1.0 に自動解決</span></td>
+          <td>csproj を 2025.1.0 に修正済み</td>
+        </tr>
+        <tr>
+          <td><code>Prepare()</code> / <code>RegisterData()</code> / <code>ImageExport</code> / <code>HTMLExport</code></td>
+          <td>&#x2014;</td>
+          <td><span class="tag-ok">正常動作</span></td>
+          <td>そのまま使用</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>1. 帳票デザインの基本的な考え方</h2>
+  <p>帳票システムは <strong>「デザイン時（レイアウト作成）」</strong> と <strong>「実行時（データ流し込み&#x2192;印刷）」</strong> の2段階に分かれます。</p>
+  <div class="card">
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div style="text-align:center;padding:10px 16px;background:#eff6ff;border-radius:6px;border:1px solid #3b82d4">
+        <div style="font-weight:700;color:#1d4ed8">デザイン時</div>
+        <div style="font-size:12px;color:#57606a">FastReport Designer（スタンドアロン）<br />で .frx を作成</div>
+      </div>
+      <div style="font-size:20px;color:#57606a">&#x2192;</div>
+      <div style="text-align:center;padding:10px 16px;background:#f0fdf4;border-radius:6px;border:1px solid #2da44e">
+        <div style="font-weight:700;color:#166534">実行時</div>
+        <div style="font-size:12px;color:#57606a">DSPrt が JSON データを .frx に流し込み<br />ImageExport &#x2192; PrintDocument &#x2192; 自動印刷</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:#57606a">
+      帳票追加は <code>./Reports/</code> に .frx を置いて <code>DSPrt.json</code> に登録するだけ。
+    </div>
+  </div>
+
+  <h2>2. 主要ツール比較</h2>
+  <table>
+    <thead>
+      <tr><th>ツール</th><th>デザイナー</th><th>コスト</th><th>.NET 8</th><th>直接印刷</th><th>PDF出力</th><th>内蔵デザイナー</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>RDLC</strong><br /><span style="font-size:11px;color:#57606a">Microsoft 標準</span></td>
+        <td>Visual Studio 内蔵</td>
+        <td><span class="badge badge-green">無料</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span><br /><span style="font-size:11px">Render()&#x2192;PrintDocument</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-red">&#x2715;</span></td>
+      </tr>
+      <tr style="background:#f0fdf4">
+        <td><strong>FastReport OS</strong><br /><span style="font-size:11px;color:#2da44e">&#x2605; 採用</span></td>
+        <td>スタンドアロン exe（VS不要）</td>
+        <td><span class="badge badge-green">無料</span><br /><span style="font-size:11px">MIT</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-orange">代替</span><br /><span style="font-size:11px">ImageExport&#x2192;PrintDoc</span></td>
+        <td><span class="badge badge-red">&#x2715;</span><br /><span style="font-size:11px">HTML で代替</span></td>
+        <td><span class="badge badge-red">&#x2715;</span><br /><span style="font-size:11px">外部起動で代替</span></td>
+      </tr>
+      <tr>
+        <td><strong>FastReport Pro</strong><br /><span style="font-size:11px;color:#57606a">有料版</span></td>
+        <td>スタンドアロン + 内蔵可</td>
+        <td><span class="badge badge-red">有料</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span><br /><span style="font-size:11px">Report.Print() 利用可</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span><br /><span style="font-size:11px">DesignerControl</span></td>
+      </tr>
+      <tr>
+        <td><strong>QuestPDF</strong></td>
+        <td>GUI なし（C# コード）</td>
+        <td><span class="badge badge-green">無料</span><br /><span style="font-size:11px">MIT</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-orange">PDF経由</span></td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-red">&#x2715;</span></td>
+      </tr>
+      <tr>
+        <td><strong>Crystal Reports</strong></td>
+        <td>専用デザイナー</td>
+        <td><span class="badge badge-red">有料</span></td>
+        <td><span class="badge badge-red">非対応</span></td>
+        <td>&#x2014;</td>
+        <td><span class="badge badge-green">&#x25CE;</span></td>
+        <td><span class="badge badge-red">&#x2715;</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. 採用: FastReport Open Source 2025.1.0</h2>
+
+  <div class="recommend">
+    <div class="recommend-title">&#x2B50; 採用: FastReport Open Source 2025.1.0（MIT ライセンス）</div>
+    <p style="font-size:13px;margin-bottom:10px">OS版の制限は確認済みだが、スタンドアロンデザイナーによる帳票修正と .frx による帳票管理の利便性から採用を維持。</p>
+    <div class="two-col">
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">&#x2705; 維持されているメリット</div>
+        <div class="criteria-row"><div class="dot dot-green"></div>スタンドアロンデザイナー（VS 不要）</div>
+        <div class="criteria-row"><div class="dot dot-green"></div>.frx を置くだけで帳票追加</div>
+        <div class="criteria-row"><div class="dot dot-green"></div>.NET 8 / WPF 対応</div>
+        <div class="criteria-row"><div class="dot dot-green"></div>MIT ライセンス・完全無料</div>
+        <div class="criteria-row"><div class="dot dot-green"></div>DataTable バインド（RegisterData）&#x2705;</div>
+        <div class="criteria-row"><div class="dot dot-green"></div>Prepare() / ImageExport / HTMLExport &#x2705;</div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">&#x26A0;&#xFE0F; 判明した制限と対処</div>
+        <div class="criteria-row"><div class="dot dot-red"></div><strong>Report.Print() なし</strong> &#x2192; ImageExport+PrintDocument</div>
+        <div class="criteria-row"><div class="dot dot-red"></div><strong>DesignerControl なし</strong> &#x2192; 外部起動ボタン</div>
+        <div class="criteria-row"><div class="dot dot-red"></div><strong>PDF エクスポートなし</strong> &#x2192; HTMLExport で代替</div>
+        <div class="criteria-row"><div class="dot dot-yellow"></div>印刷解像度は 203dpi（調整可）</div>
+        <div class="criteria-row"><div class="dot dot-yellow"></div>HTML プレビューは簡易（フォント差異あり）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>将来的に PDF 印刷・デザイナー内蔵が必要になった場合：</strong><br />
+    FastReport Pro（有料版）へのアップグレードで <code>Report.Print()</code> / <code>DesignerControl</code> / PDF エクスポートが使用可能になる。
+    .frx ファイルの互換性は維持されるため、帳票の作り直しは不要。
+  </div>
+
+  <h2>4. 帳票デザインワークフロー（実装済み）</h2>
+
+  <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:6px;padding:16px;margin:12px 0">
+    <div class="flow-box">
+      <div class="flow-step" style="background:#eff6ff;border:1px solid #3b82d4">
+        <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px">&#x2460; JSON 仕様確定</div>
+        <div style="font-size:11px;color:#57606a">PR_PRINT.data の構造確定</div>
+      </div>
+      <div class="flow-arrow">&#x2192;</div>
+      <div class="flow-step" style="background:#f5f3ff;border:1px solid #7c5cd8">
+        <div style="font-weight:700;font-size:12px;color:#6d28d9;margin-bottom:4px">&#x2461; デザイナー起動</div>
+        <div style="font-size:11px;color:#57606a">「デザイナーで開く」ボタン<br />&#x2192; FastReport Designer（外部）</div>
+      </div>
+      <div class="flow-arrow">&#x2192;</div>
+      <div class="flow-step" style="background:#f0fdf4;border:1px solid #2da44e">
+        <div style="font-weight:700;font-size:12px;color:#166534;margin-bottom:4px">&#x2462; .frx 保存</div>
+        <div style="font-size:11px;color:#57606a">./Reports/ に配置<br />DSPrt.json に登録</div>
+      </div>
+      <div class="flow-arrow">&#x2192;</div>
+      <div class="flow-step" style="background:#fff7ed;border:1px solid #d4600a">
+        <div style="font-weight:700;font-size:12px;color:#9a3412;margin-bottom:4px">&#x2463; プレビュー確認</div>
+        <div style="font-size:11px;color:#57606a">「プレビュー」タブ<br />&#x2192; HTMLExport &#x2192; WebBrowser</div>
+      </div>
+      <div class="flow-arrow">&#x2192;</div>
+      <div class="flow-step" style="background:#fdf4ff;border:1px solid #7c5cd8">
+        <div style="font-weight:700;font-size:12px;color:#6d28d9;margin-bottom:4px">&#x2464; 自動印刷</div>
+        <div style="font-size:11px;color:#57606a">PR_PRINT &#x2192; ImageExport<br />&#x2192; PrintDocument</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>5. 印刷フロー（実装確定版）</h2>
+
+  <div class="ok">
+    <strong>FastReport OS 版固有の制限への対処として確立したフロー：</strong><br />
+    <code>report.Prepare()</code> &#x2192; <code>ImageExport(PNG, 203dpi, SaveStreams=true)</code>
+    &#x2192; <code>Bitmap</code> リスト &#x2192; <code>PrintDocument.PrintPage</code> で描画 &#x2192; <code>doc.Print()</code>
+  </div>
+
+  <table>
+    <thead><tr><th>ステップ</th><th>クラス / メソッド</th><th>備考</th></tr></thead>
+    <tbody>
+      <tr><td>&#x2460; .frx 読み込み</td><td><code>report.Load(frxPath)</code></td><td>相対パスを絶対パスに解決</td></tr>
+      <tr><td>&#x2461; データバインド</td><td><code>report.RegisterData(DataTable, name)</code></td><td>JSON &#x2192; DataTable 変換（Newtonsoft.Json）</td></tr>
+      <tr><td>&#x2462; レンダリング</td><td><code>report.Prepare()</code></td><td>レイアウトとデータを結合</td></tr>
+      <tr><td>&#x2463; ページ画像生成</td><td><code>ImageExport(Png, 203dpi, SaveStreams=true)</code></td><td>全ページ分の Stream を生成</td></tr>
+      <tr><td>&#x2464; Bitmap 変換</td><td><code>new Bitmap(stream)</code></td><td><code>System.Drawing.Common 8.0.8</code> が必要</td></tr>
+      <tr><td>&#x2465; 印刷送信</td><td><code>PrintDocument &#x2192; e.Graphics.DrawImage()</code></td><td>プリンター名・部数・両面・用紙サイズを設定</td></tr>
+      <tr><td>&#x2466; 完了通知</td><td><code>PR_DONE</code> 電文送信</td><td>status: "done" | "error"</td></tr>
+    </tbody>
+  </table>
+
+  <h3>実行時コード（確定版）</h3>
+  <pre>// NuGet: FastReport.OpenSource 2025.1.0 + System.Drawing.Common 8.0.8
+using FastReport;
+using FastReport.Export.Image;
+using FastReport.Export.Html;
+using System.Drawing.Printing;
+
+FastReport.Utils.Config.WebMode = true;  // ライセンスダイアログ非表示
+var report = new Report();
+report.Load("./Reports/FinalResult_A4.frx");
+
+// JSON -> DataTable -> バインド
+report.RegisterData(jsonArrayToDataTable(json, "Results"), "Results");
+report.Prepare();
+
+// 印刷（Report.Print() は OS 版に存在しない → ImageExport で代替）
+var export = new ImageExport {
+    ImageFormat = ImageExportFormat.Png,
+    Resolution  = 203,
+    SaveStreams  = true,
+    SeparateFiles = true
+};
+report.Export(export, string.Empty);
+var pages = export.GeneratedStreams
+    .Select(s => { s.Position = 0; return new Bitmap(s); }).ToList();
+
+var doc = new PrintDocument();
+doc.PrinterSettings.PrinterName = "Canon TR8600";
+doc.PrinterSettings.Copies = 2;
+int idx = 0;
+doc.PrintPage += (_, e) => {
+    e.Graphics!.DrawImage(pages[idx++], e.MarginBounds);
+    e.HasMorePages = idx &lt; pages.Count;
+};
+doc.Print();
+
+// プレビュー（PDF 非対応 → HTML で代替）
+var html = new HTMLExport { EmbedPictures = true, SinglePage = true };
+report.Export(html, "./Spool/Preview/job001.html");</pre>
+
+  <h2>6. NuGet パッケージ（確定版）</h2>
+
+  <table>
+    <thead><tr><th>パッケージ</th><th>バージョン</th><th>用途</th><th>状態</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>FastReport.OpenSource</code></td>
+        <td><strong>2025.1.0</strong></td>
+        <td>.frx 読み込み・ImageExport・HTMLExport</td>
+        <td><span class="tag-ok">導入済み</span></td>
+      </tr>
+      <tr>
+        <td><code>FastReport.OpenSource.Export.Pdf</code></td>
+        <td>&#x2014;</td>
+        <td>PDF エクスポート</td>
+        <td><span class="tag-ng">NuGet に存在しない</span></td>
+      </tr>
+      <tr>
+        <td><code>System.Drawing.Common</code></td>
+        <td><strong>8.0.8</strong></td>
+        <td>Bitmap・PrintDocument による印刷</td>
+        <td><span class="tag-ok">導入済み</span>（新規追加）</td>
+      </tr>
+      <tr>
+        <td><code>Newtonsoft.Json</code></td>
+        <td><strong>13.0.3</strong></td>
+        <td>JSON &#x2192; DataTable 変換</td>
+        <td><span class="tag-ok">導入済み</span></td>
+      </tr>
+      <tr>
+        <td><code>System.Printing</code>（WPF 標準）</td>
+        <td>.NET 8 付属</td>
+        <td>プリンター一覧・存在確認・デフォルト取得</td>
+        <td><span class="tag-ok">利用中</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>7. MainWindow タブ構成（実装済み）</h2>
+
+  <table>
+    <thead><tr><th>タブ</th><th>主な機能</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>&#x2460; ジョブログ</strong></td>
+        <td>DataGrid（受信時刻 / jobId / layoutId / 部数 / 状態 / 完了時刻 / エラー）。200件保持。複数選択&#x2192;再印刷ボタン（完了・エラーのみ有効）。再印刷 jobId サフィックス: <code>_R</code></td>
+      </tr>
+      <tr>
+        <td><strong>&#x2461; プレビュー</strong></td>
+        <td>ジョブログで選択したジョブを HTMLExport &#x2192; WPF WebBrowser 表示。「ブラウザで開く」ボタン。HTML は <code>./Spool/Preview/</code> に保存</td>
+      </tr>
+      <tr>
+        <td><strong>&#x2462; 帳票設定</strong></td>
+        <td>デフォルトプリンター表示。Layouts 一覧（layoutId / frxPath / DataType / PrinterName / 部数 / 用紙 / 両面）。「デザイナーで開く」（.frx を外部起動）。「Reports フォルダを開く」</td>
+      </tr>
+      <tr>
+        <td><strong>&#x2463; 接続ログ</strong></td>
+        <td>通信・印刷ログ（Consolas）。500行制限。ログクリアボタン</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="info">
+    <strong>設計変更点：</strong><br />
+    「帳票デザイン」タブ（DesignerControl 内蔵）&#x2192; 廃止。「帳票設定」タブにデザイナー外部起動ボタンを統合。<br />
+    「接続ログ」タブを新設（旧設計では非タブのログエリア）。
+  </div>
+
+  <h2>8. FastReport デザイナーで利用できる主要機能</h2>
+
+  <table>
+    <thead><tr><th>デザイナー機能</th><th>DSPrt での活用場面</th></tr></thead>
+    <tbody>
+      <tr><td>データバンド（繰り返し行）</td><td>選手結果一覧・エントリーリストの行繰り返し</td></tr>
+      <tr><td>グループヘッダー/フッター</td><td>区分別・ラウンド別に集計行を挿入</td></tr>
+      <tr><td>集計式（Sum/Count/Avg）</td><td>出場人数・平均点などの自動集計</td></tr>
+      <tr><td>条件付き書式</td><td>1位を太字・金色表示など</td></tr>
+      <tr><td>テキストボックス自由配置</td><td>表彰状の文言・位置調整</td></tr>
+      <tr><td>画像フィールド</td><td>競技団体ロゴ・印章画像の印刷</td></tr>
+      <tr><td>改ページ制御</td><td>区分ごとに新ページ / 1表彰状1ページ</td></tr>
+      <tr><td>バーコード / QR コード</td><td>選手IDのバーコード印刷</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="divider" />
+
+  <div class="footer">Made with IBM Bob</div>
+</div>
+</body>
+</html>

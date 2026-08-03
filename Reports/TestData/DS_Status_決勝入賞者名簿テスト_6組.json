@@ -1,0 +1,72 @@
+{
+  "_comment": "DS_Status テストデータ — 決勝入賞者名簿 テスト（6組・決勝）",
+  "_note": "KbnNo=2, RndNo=4（決勝）。6組出場。DA_Master_準決勝進出者名簿テスト_25組.json を DA_Master として使用。",
+  "DS_OrgCD": "JS",
+  "DS_CompNo": "TEST003",
+  "DS_Version": 1,
+  "DS_FLOORs": [
+    {
+      "DS_FlrCd": "A",
+      "DS_CurPrgNo": "3",
+      "DS_CurPrgSubNo": "1",
+      "DS_PRGRSs": [
+        {
+          "DS_PrgNo": "3",
+          "DS_PrgSubNo": "1",
+          "DS_KbnNo": "2",
+          "DS_RndNo": "4",
+          "DS_DGrpNo": "1",
+          "DS_PrgSts": "1",
+          "DS_PrgShuffle": false,
+          "DS_PickupCnt": 0,
+          "DS_UpCnt": 0,
+          "PlayerAssignments": [
+            { "PlayerNo": "14", "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] },
+            { "PlayerNo": "21", "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] },
+            { "PlayerNo": "27", "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] },
+            { "PlayerNo": "36", "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] },
+            { "PlayerNo": "45", "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] },
+            { "PlayerNo": "61", "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] }
+          ],
+          "DS_PRGDANCEs": [
+            {
+              "DS_DncNo": 1,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 2,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 3,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 4,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 5,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

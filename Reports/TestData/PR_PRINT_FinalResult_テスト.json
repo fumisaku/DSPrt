@@ -1,0 +1,61 @@
+{
+  "_comment": "PR_PRINT 電文のテストデータ — FINAL_RESULT_A4（決勝入賞者名簿）",
+  "jobId": "JS001_FINALRESULT_20250601180000_001",
+  "layoutId": "FINAL_RESULT_A4",
+  "copies": 2,
+  "priority": 2,
+  "data": {
+    "CmpNo": "001",
+    "CmpName": "第42回関東ダンス選手権大会",
+    "CmpDate": "2025-06-01",
+    "KbnName": "スタンダード種目",
+    "RankName": "決勝",
+    "Results": [
+      {
+        "Rank": 1,
+        "PlayerNo": "A001",
+        "PlayerName": "山田 太郎",
+        "PairName": "鈴木 花子",
+        "ClubName": "東京ダンスクラブ",
+        "W": 5,
+        "T": 2,
+        "F": 2,
+        "Q": 6,
+        "Score": "98.50"
+      },
+      {
+        "Rank": 2,
+        "PlayerNo": "A002",
+        "PlayerName": "佐藤 次郎",
+        "PairName": "田中 美咲",
+        "ClubName": "横浜スポーツダンス",
+        "W": 4,
+        "T": 3,
+        "F": 2,
+        "Q": 6,
+        "Score": "96.20"
+      },
+      {
+        "Rank": 3,
+        "PlayerNo": "A003",
+        "PlayerName": "中村 健一",
+        "PairName": "小林 由美",
+        "ClubName": "埼玉ダンスアカデミー",
+        "W": 3,
+        "T": 4,
+        "F": 2,
+        "Q": 6,
+        "Score": "94.80"
+      }
+    ],
+    "Heats": [
+      {
+        "HeatNo": 1,
+        "Kbn": "W",
+        "JudgeA": "100",
+        "JudgeB": "010",
+        "JudgeC": "001"
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "_comment": "PR_PRINT テストデータ — PLAYER_NOTICE_A4（出場者連絡票）",
+  "_note": "サーバー側でDS_Status+DA_Masterを結合してフラット化したデータを送信する",
+  "jobId": "JS001_NOTICE_20250601120000_001",
+  "layoutId": "PLAYER_NOTICE_A4",
+  "copies": 1,
+  "priority": 2,
+  "data": {
+    "KbnNo": "00100",
+    "KbnName": "PDグランプリカップスタンダード",
+    "RndName": "１次予選",
+    "ScrMtd": "AJS3.1J(Type D)",
+    "Dances": "WTVFQ",
+    "TotalEntries": 12,
+    "PickupCount": 6,
+    "RndFlags": [
+      { "RndLabel": "１次予選", "IsCurrent": true  },
+      { "RndLabel": "２次予選", "IsCurrent": false },
+      { "RndLabel": "３次予選", "IsCurrent": false },
+      { "RndLabel": "４次予選", "IsCurrent": false },
+      { "RndLabel": "準決勝",   "IsCurrent": false },
+      { "RndLabel": "下位決勝", "IsCurrent": false },
+      { "RndLabel": "上位決勝", "IsCurrent": false }
+    ],
+    "Heats": [
+      {
+        "HeatNo": 1,
+        "Players": [
+          { "PlayerNo": "1",  "PlayerName": "髙橋" },
+          { "PlayerNo": "2",  "PlayerName": "佐藤" },
+          { "PlayerNo": "3",  "PlayerName": "武澤" },
+          { "PlayerNo": "4",  "PlayerName": "前田" },
+          { "PlayerNo": "5",  "PlayerName": "天野" },
+          { "PlayerNo": "15", "PlayerName": "廣島" }
+        ]
+      },
+      {
+        "HeatNo": 2,
+        "Players": [
+          { "PlayerNo": "8",  "PlayerName": "佐藤" },
+          { "PlayerNo": "9",  "PlayerName": "喜多田" },
+          { "PlayerNo": "10", "PlayerName": "壷内" },
+          { "PlayerNo": "11", "PlayerName": "長谷川" },
+          { "PlayerNo": "12", "PlayerName": "見元" },
+          { "PlayerNo": "14", "PlayerName": "鈴木" }
+        ]
+      }
+    ]
+  }
+}

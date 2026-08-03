@@ -1,0 +1,13 @@
+{
+  "_comment": "PR_PRINT テストデータ — PLAYER_NOTICE_HORIZONTAL_A4（出場者連絡票・横向き）",
+  "_note": "data に KbnNo / RndNo を指定する。DGrpNo は省略可能（省略時は最初の種目グループを使用）。DA_Master + DS_Status はキャッシュから参照する。",
+  "jobId": "JS001_PLAYER_NOTICE_HORIZONTAL_20250601120000_001",
+  "layoutId": "PLAYER_NOTICE_HORIZONTAL_A4",
+  "copies": 1,
+  "priority": 2,
+  "data": {
+    "KbnNo": "1",
+    "RndNo": "1",
+    "DGrpNo": ""
+  }
+}

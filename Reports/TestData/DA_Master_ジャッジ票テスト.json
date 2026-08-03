@@ -1,0 +1,165 @@
+{
+  "_comment": "DA_Master テストデータ — ジャッジ票テスト用",
+  "_note": "DB_KbnNo='1', DC_RndNo='1' に統一。DS_Status_出場者連絡票テスト.json と組み合わせて使用。DJ_JUDGEs に7名のジャッジを登録。",
+  "DA_OrgCD": "JS",
+  "DA_CompNo": "TEST001",
+  "DA_CompName": "テスト競技会 2026",
+  "DA_CompDate": "2026-08-01",
+  "DA_CompPlace": "テスト会場",
+  "DB_KUBUNs": [
+    {
+      "DB_KbnNo": "1",
+      "DB_KbnCd": "PD",
+      "DB_KbnName": "PDグランプリカップ スタンダード",
+      "DB_KbnDispName": "PDグランプリカップ スタンダード",
+      "DC_ROUNDs": [
+        {
+          "DC_RndNo": "1",
+          "DC_RndName_J": "1次予選",
+          "DC_RndHeatCnt": 4,
+          "DC_RndUpPln": 12,
+          "DC_RndScrMtd": "AJS3.1J for PD",
+          "DD_DGRPs": [
+            {
+              "DD_DGrpNo": "1",
+              "DD_DGrpName": "スタンダード5種目",
+              "DE_DANCEs": [
+                { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "ワルツ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 2, "DE_DncCd": "T",  "DE_DncNm_J": "タンゴ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 3, "DE_DncCd": "VW", "DE_DncNm_J": "ヴィエニーズワルツ",      "DE_DncSG": "Group" },
+                { "DE_DncNo": 4, "DE_DncCd": "SF", "DE_DncNm_J": "スローフォックストロット", "DE_DncSG": "Group" },
+                { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "クイックステップ",         "DE_DncSG": "Group" }
+              ]
+            }
+          ]
+        },
+        {
+          "DC_RndNo": "2",
+          "DC_RndName_J": "2次予選",
+          "DC_RndHeatCnt": 2,
+          "DC_RndUpPln": 6,
+          "DC_RndScrMtd": "AJS3.1J for PD",
+          "DD_DGRPs": [
+            {
+              "DD_DGrpNo": "1",
+              "DD_DGrpName": "スタンダード5種目",
+              "DE_DANCEs": [
+                { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "ワルツ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 2, "DE_DncCd": "T",  "DE_DncNm_J": "タンゴ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 3, "DE_DncCd": "VW", "DE_DncNm_J": "ヴィエニーズワルツ",      "DE_DncSG": "Group" },
+                { "DE_DncNo": 4, "DE_DncCd": "SF", "DE_DncNm_J": "スローフォックストロット", "DE_DncSG": "Group" },
+                { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "クイックステップ",         "DE_DncSG": "Group" }
+              ]
+            }
+          ]
+        },
+        {
+          "DC_RndNo": "3",
+          "DC_RndName_J": "準決勝",
+          "DC_RndHeatCnt": 1,
+          "DC_RndUpPln": 6,
+          "DC_RndScrMtd": "AJS3.1J for PD",
+          "DD_DGRPs": [
+            {
+              "DD_DGrpNo": "1",
+              "DD_DGrpName": "スタンダード5種目",
+              "DE_DANCEs": [
+                { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "ワルツ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 2, "DE_DncCd": "T",  "DE_DncNm_J": "タンゴ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 3, "DE_DncCd": "VW", "DE_DncNm_J": "ヴィエニーズワルツ",      "DE_DncSG": "Group" },
+                { "DE_DncNo": 4, "DE_DncCd": "SF", "DE_DncNm_J": "スローフォックストロット", "DE_DncSG": "Group" },
+                { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "クイックステップ",         "DE_DncSG": "Group" }
+              ]
+            }
+          ]
+        },
+        {
+          "DC_RndNo": "4",
+          "DC_RndName_J": "決勝",
+          "DC_RndHeatCnt": 1,
+          "DC_RndUpPln": 0,
+          "DC_RndScrMtd": "AJS3.1J for PD",
+          "DD_DGRPs": [
+            {
+              "DD_DGrpNo": "1",
+              "DD_DGrpName": "スタンダード5種目",
+              "DE_DANCEs": [
+                { "DE_DncNo": 1, "DE_DncCd": "W",  "DE_DncNm_J": "ワルツ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 2, "DE_DncCd": "T",  "DE_DncNm_J": "タンゴ",                  "DE_DncSG": "Group" },
+                { "DE_DncNo": 3, "DE_DncCd": "VW", "DE_DncNm_J": "ヴィエニーズワルツ",      "DE_DncSG": "Group" },
+                { "DE_DncNo": 4, "DE_DncCd": "SF", "DE_DncNm_J": "スローフォックストロット", "DE_DncSG": "Group" },
+                { "DE_DncNo": 5, "DE_DncCd": "Q",  "DE_DncNm_J": "クイックステップ",         "DE_DncSG": "Group" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "DJ_JUDGEs": [
+    {
+      "DJ_No": 1, "DJ_JdgCd": "A",
+      "DJ_JdgName": "稲澤　義一", "DJ_JdgDispName": "稲澤　義一",
+      "DJ_JdgKana": "", "DJ_JdgMemNo": "", "DJ_JdgCtry": "", "DJ_JdgLang": "J",
+      "DJ_JdgGrps": [{ "DJ_JdgGrp": "J01", "DJ_JdgTyp": "J", "DJ2_JdgTypeName": null }]
+    },
+    {
+      "DJ_No": 2, "DJ_JdgCd": "B",
+      "DJ_JdgName": "小林　秀一", "DJ_JdgDispName": "小林　秀一",
+      "DJ_JdgKana": "", "DJ_JdgMemNo": "", "DJ_JdgCtry": "", "DJ_JdgLang": "J",
+      "DJ_JdgGrps": [{ "DJ_JdgGrp": "J01", "DJ_JdgTyp": "J", "DJ2_JdgTypeName": null }]
+    },
+    {
+      "DJ_No": 3, "DJ_JdgCd": "C",
+      "DJ_JdgName": "吉井　時広", "DJ_JdgDispName": "吉井　時広",
+      "DJ_JdgKana": "", "DJ_JdgMemNo": "", "DJ_JdgCtry": "", "DJ_JdgLang": "J",
+      "DJ_JdgGrps": [{ "DJ_JdgGrp": "J01", "DJ_JdgTyp": "J", "DJ2_JdgTypeName": null }]
+    },
+    {
+      "DJ_No": 4, "DJ_JdgCd": "D",
+      "DJ_JdgName": "笹山　良子", "DJ_JdgDispName": "笹山　良子",
+      "DJ_JdgKana": "", "DJ_JdgMemNo": "", "DJ_JdgCtry": "", "DJ_JdgLang": "J",
+      "DJ_JdgGrps": [{ "DJ_JdgGrp": "J01", "DJ_JdgTyp": "J", "DJ2_JdgTypeName": null }]
+    },
+    {
+      "DJ_No": 5, "DJ_JdgCd": "E",
+      "DJ_JdgName": "水本　慶子", "DJ_JdgDispName": "水本　慶子",
+      "DJ_JdgKana": "", "DJ_JdgMemNo": "", "DJ_JdgCtry": "", "DJ_JdgLang": "J",
+      "DJ_JdgGrps": [{ "DJ_JdgGrp": "J01", "DJ_JdgTyp": "J", "DJ2_JdgTypeName": null }]
+    },
+    {
+      "DJ_No": 6, "DJ_JdgCd": "F",
+      "DJ_JdgName": "家泉　朋美", "DJ_JdgDispName": "家泉　朋美",
+      "DJ_JdgKana": "", "DJ_JdgMemNo": "", "DJ_JdgCtry": "", "DJ_JdgLang": "J",
+      "DJ_JdgGrps": [{ "DJ_JdgGrp": "J01", "DJ_JdgTyp": "J", "DJ2_JdgTypeName": null }]
+    },
+    {
+      "DJ_No": 7, "DJ_JdgCd": "G",
+      "DJ_JdgName": "伊藤　金四郎", "DJ_JdgDispName": "伊藤　金四郎",
+      "DJ_JdgKana": "", "DJ_JdgMemNo": "", "DJ_JdgCtry": "", "DJ_JdgLang": "J",
+      "DJ_JdgGrps": [{ "DJ_JdgGrp": "J01", "DJ_JdgTyp": "J", "DJ2_JdgTypeName": null }]
+    }
+  ],
+  "DM_MEMBERs": [
+    { "DM_UkeNo": 1,  "DM_MASTERs": [{ "DM_No": "1",  "DM_LDispName": "髙橋 誠",   "DM_PDispName": "髙橋 令子",   "DM_Ctry": "東京SC" }] },
+    { "DM_UkeNo": 2,  "DM_MASTERs": [{ "DM_No": "2",  "DM_LDispName": "佐藤 健一", "DM_PDispName": "佐藤 由美",   "DM_Ctry": "東京SC" }] },
+    { "DM_UkeNo": 3,  "DM_MASTERs": [{ "DM_No": "3",  "DM_LDispName": "武澤 浩二", "DM_PDispName": "武澤 恵",     "DM_Ctry": "横浜SC" }] },
+    { "DM_UkeNo": 4,  "DM_MASTERs": [{ "DM_No": "4",  "DM_LDispName": "前田 勇",   "DM_PDispName": "前田 朋子",   "DM_Ctry": "横浜SC" }] },
+    { "DM_UkeNo": 5,  "DM_MASTERs": [{ "DM_No": "5",  "DM_LDispName": "天野 大輔", "DM_PDispName": "天野 美香",   "DM_Ctry": "埼玉DC" }] },
+    { "DM_UkeNo": 6,  "DM_MASTERs": [{ "DM_No": "6",  "DM_LDispName": "田中 弘",   "DM_PDispName": "田中 加奈子", "DM_Ctry": "埼玉DC" }] },
+    { "DM_UkeNo": 7,  "DM_MASTERs": [{ "DM_No": "7",  "DM_LDispName": "山本 博",   "DM_PDispName": "山本 真由美", "DM_Ctry": "千葉DC" }] },
+    { "DM_UkeNo": 8,  "DM_MASTERs": [{ "DM_No": "8",  "DM_LDispName": "佐藤 正",   "DM_PDispName": "佐藤 芳子",   "DM_Ctry": "千葉DC" }] },
+    { "DM_UkeNo": 9,  "DM_MASTERs": [{ "DM_No": "9",  "DM_LDispName": "喜多田 充", "DM_PDispName": "喜多田 麻衣", "DM_Ctry": "大阪SC" }] },
+    { "DM_UkeNo": 10, "DM_MASTERs": [{ "DM_No": "10", "DM_LDispName": "壷内 克己", "DM_PDispName": "壷内 裕子",   "DM_Ctry": "大阪SC" }] },
+    { "DM_UkeNo": 11, "DM_MASTERs": [{ "DM_No": "11", "DM_LDispName": "長谷川 修", "DM_PDispName": "長谷川 美奈", "DM_Ctry": "京都DC" }] },
+    { "DM_UkeNo": 12, "DM_MASTERs": [{ "DM_No": "12", "DM_LDispName": "見元 康弘", "DM_PDispName": "見元 順子",   "DM_Ctry": "京都DC" }] },
+    { "DM_UkeNo": 13, "DM_MASTERs": [{ "DM_No": "13", "DM_LDispName": "廣島 義弘", "DM_PDispName": "廣島 智子",   "DM_Ctry": "神戸DC" }] },
+    { "DM_UkeNo": 14, "DM_MASTERs": [{ "DM_No": "14", "DM_LDispName": "鈴木 一郎", "DM_PDispName": "鈴木 奈緒",   "DM_Ctry": "名古屋SC" }] },
+    { "DM_UkeNo": 15, "DM_MASTERs": [{ "DM_No": "15", "DM_LDispName": "廣島 正之", "DM_PDispName": "廣島 里美",   "DM_Ctry": "福岡DC" }] },
+    { "DM_UkeNo": 16, "DM_MASTERs": [{ "DM_No": "16", "DM_LDispName": "中村 雄介", "DM_PDispName": "中村 千恵",   "DM_Ctry": "福岡DC" }] },
+    { "DM_UkeNo": 17, "DM_MASTERs": [{ "DM_No": "17", "DM_LDispName": "小林 哲也", "DM_PDispName": "小林 亜希",   "DM_Ctry": "東京SC" }] },
+    { "DM_UkeNo": 18, "DM_MASTERs": [{ "DM_No": "18", "DM_LDispName": "伊藤 隆",   "DM_PDispName": "伊藤 香織",   "DM_Ctry": "横浜SC" }] },
+    { "DM_UkeNo": 19, "DM_MASTERs": [{ "DM_No": "19", "DM_LDispName": "渡辺 誠二", "DM_PDispName": "渡辺 幸子",   "DM_Ctry": "埼玉DC" }] },
+    { "DM_UkeNo": 20, "DM_MASTERs": [{ "DM_No": "20", "DM_LDispName": "加藤 純",   "DM_PDispName": "加藤 薫",     "DM_Ctry": "千葉DC" }] }
+  ]
+}

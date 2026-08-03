@@ -1,0 +1,86 @@
+{
+  "_comment": "DS_Status テストデータ — 準決勝進出者名簿 テスト（12組・1ページフル確認用）",
+  "_note": "KbnNo=2, RndNo=3 の準決勝。12組出場。全種目グループヒート（h1〜h3 に分散）。DA_Master は決勝進出者名簿テスト_6組.json を流用（DM_UkeNo 5〜38）。追加6組は_25組用 DA_Master から補完。",
+  "DS_OrgCD": "JS",
+  "DS_CompNo": "TEST003",
+  "DS_Version": 1,
+  "DS_FLOORs": [
+    {
+      "DS_FlrCd": "A",
+      "DS_CurPrgNo": "2",
+      "DS_CurPrgSubNo": "1",
+      "DS_PRGRSs": [
+        {
+          "DS_PrgNo": "2",
+          "DS_PrgSubNo": "1",
+          "DS_KbnNo": "2",
+          "DS_RndNo": "3",
+          "DS_DGrpNo": "1",
+          "DS_PrgSts": "1",
+          "DS_PrgShuffle": false,
+          "PlayerAssignments": [
+            { "PlayerNo": "5",  "AssignedHeatIds": ["h1", "h1", "h1", "h1", "h1"] },
+            { "PlayerNo": "11", "AssignedHeatIds": ["h1", "h1", "h1", "h2", "h2"] },
+            { "PlayerNo": "18", "AssignedHeatIds": ["h1", "h2", "h2", "h2", "h2"] },
+            { "PlayerNo": "27", "AssignedHeatIds": ["h2", "h2", "h2", "h2", "h3"] },
+            { "PlayerNo": "30", "AssignedHeatIds": ["h2", "h2", "h3", "h3", "h3"] },
+            { "PlayerNo": "38", "AssignedHeatIds": ["h2", "h3", "h3", "h3", "h3"] },
+            { "PlayerNo": "42", "AssignedHeatIds": ["h3", "h3", "h3", "h3", "h1"] },
+            { "PlayerNo": "47", "AssignedHeatIds": ["h3", "h3", "h3", "h1", "h1"] },
+            { "PlayerNo": "53", "AssignedHeatIds": ["h3", "h3", "h1", "h1", "h1"] },
+            { "PlayerNo": "61", "AssignedHeatIds": ["h3", "h1", "h1", "h1", "h2"] },
+            { "PlayerNo": "75", "AssignedHeatIds": ["h1", "h1", "h2", "h2", "h2"] },
+            { "PlayerNo": "82", "AssignedHeatIds": ["h1", "h2", "h2", "h3", "h3"] }
+          ],
+          "DS_PRGDANCEs": [
+            {
+              "DS_DncNo": 1,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 2,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 3,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 4,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" }
+              ]
+            },
+            {
+              "DS_DncNo": 5,
+              "DS_DncSts": "0",
+              "DS_PRGHEATs": [
+                { "DS_HeatId": "h1", "DS_HeatNo": 1, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h2", "DS_HeatNo": 2, "DS_HeatSts": "0" },
+                { "DS_HeatId": "h3", "DS_HeatNo": 3, "DS_HeatSts": "0" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

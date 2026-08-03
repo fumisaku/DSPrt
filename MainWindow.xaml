@@ -1,0 +1,232 @@
+<Window x:Class="DSPrt.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DSPrt"
+        Width="1000" Height="640"
+        MinWidth="720" MinHeight="480">
+
+    <DockPanel>
+        <!-- ステータスバー（下部） -->
+        <StatusBar DockPanel.Dock="Bottom" Height="30" Background="#F0F0F0">
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="StatusIndicator"
+                             Width="12" Height="12"
+                             Fill="Gray"
+                             Margin="4,0,6,0"
+                             VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtConnectionStatus"
+                               Text="未接続"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0"/>
+                    <TextBlock x:Name="TxtServerInfo"
+                               Text=""
+                               VerticalAlignment="Center"
+                               Foreground="#555555"
+                               Margin="0,0,16,0"/>
+                    <TextBlock x:Name="TxtQueueInfo"
+                               Text="キュー: 0"
+                               VerticalAlignment="Center"
+                               Foreground="#555555"
+                               Margin="0,0,16,0"/>
+                    <Button x:Name="BtnConnect"
+                            Content="接続"
+                            Width="72" Height="22"
+                            Margin="0,0,6,0"
+                            Click="BtnConnect_Click"/>
+                    <Button x:Name="BtnDisconnect"
+                            Content="切断"
+                            Width="72" Height="22"
+                            IsEnabled="False"
+                            Click="BtnDisconnect_Click"/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- タブコントロール -->
+        <TabControl x:Name="MainTabControl" DockPanel.Dock="Top" Margin="4">
+
+            <!-- ─── タブ1: ジョブログ ─────────────────────────────── -->
+            <TabItem Header="ジョブログ">
+                <Grid Margin="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- ジョブログ DataGrid -->
+                    <DataGrid x:Name="JobLogGrid"
+                              Grid.Row="0"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Extended"
+                              CanUserSortColumns="True"
+                              GridLinesVisibility="Horizontal"
+                              AlternatingRowBackground="#FAFAFA"
+                              FontSize="12"
+                              RowHeight="22">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="受信時刻"       Binding="{Binding ReceivedAt, StringFormat=HH:mm:ss}" Width="80"/>
+                            <DataGridTextColumn Header="jobId"          Binding="{Binding JobId}"      Width="220"/>
+                            <DataGridTextColumn Header="layoutId"       Binding="{Binding LayoutId}"   Width="160"/>
+                            <DataGridTextColumn Header="部数"           Binding="{Binding Copies}"     Width="50"/>
+                            <DataGridTextColumn Header="状態"           Binding="{Binding StatusText}" Width="80"/>
+                            <DataGridTextColumn Header="完了時刻"       Binding="{Binding CompletedAt, StringFormat=HH:mm:ss}" Width="80"/>
+                            <DataGridTextColumn Header="エラーメッセージ" Binding="{Binding ErrorMessage}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- 操作ボタン -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="4">
+                        <Button x:Name="BtnReprint"
+                                Content="再印刷"
+                                Width="90" Height="28"
+                                Margin="0,0,6,0"
+                                IsEnabled="False"
+                                Click="BtnReprint_Click"/>
+                        <Button x:Name="BtnClearJobLog"
+                                Content="ログクリア"
+                                Width="90" Height="28"
+                                Click="BtnClearJobLog_Click"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ─── タブ2: 帳票設定 ───────────────────────────────── -->
+            <TabItem Header="帳票設定">
+                <Grid Margin="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- デフォルトプリンター表示 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4,4,4,8">
+                        <TextBlock Text="デフォルトプリンター: " VerticalAlignment="Center" FontWeight="Bold"/>
+                        <TextBlock x:Name="TxtDefaultPrinter" Text="-" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- レイアウト設定一覧 -->
+                    <DataGrid x:Name="LayoutGrid"
+                              Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              GridLinesVisibility="Horizontal"
+                              AlternatingRowBackground="#FAFAFA"
+                              FontSize="12"
+                              RowHeight="22"
+                              SelectionChanged="LayoutGrid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="layoutId"     Binding="{Binding LayoutId}"     Width="160"/>
+                            <DataGridTextColumn Header="frx ファイル" Binding="{Binding FrxPath}"      Width="220"/>
+                            <DataGridTextColumn Header="データ種別"   Binding="{Binding DataType}"     Width="140"/>
+                            <DataGridTextColumn Header="プリンター"   Binding="{Binding PrinterName}"  Width="160"/>
+                            <DataGridTextColumn Header="部数"         Binding="{Binding Copies}"       Width="50"/>
+                            <DataGridTextColumn Header="用紙"         Binding="{Binding PaperSize}"    Width="60"/>
+                            <DataGridTextColumn Header="両面"         Binding="{Binding Duplex}"       Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- 帳票設定操作ボタン -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="4">
+                        <Button x:Name="BtnTestPrint"
+                                Content="▶ テスト印刷"
+                                Width="120" Height="28"
+                                Margin="0,0,6,0"
+                                IsEnabled="False"
+                                ToolTip="選択した帳票をテストデータで試し印刷します（サーバー接続不要）"
+                                Click="BtnTestPrint_Click"/>
+                        <Button x:Name="BtnTestPreview"
+                                Content="👁 プレビュー確認"
+                                Width="130" Height="28"
+                                Margin="0,0,12,0"
+                                IsEnabled="False"
+                                ToolTip="選択した帳票をプレビューとして表示します（印刷しない）"
+                                Click="BtnTestPreview_Click"/>
+                        <Button x:Name="BtnOpenDesigner"
+                                Content="デザイナーで開く"
+                                Width="130" Height="28"
+                                Margin="0,0,6,0"
+                                IsEnabled="False"
+                                ToolTip="選択した .frx ファイルをデフォルトの関連アプリで開きます"
+                                Click="BtnOpenDesigner_Click"/>
+                        <Button x:Name="BtnOpenReportsFolder"
+                                Content="Reportsフォルダを開く"
+                                Width="160" Height="28"
+                                ToolTip="帳票テンプレートフォルダをエクスプローラーで開きます"
+                                Click="BtnOpenReportsFolder_Click"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ─── タブ3: プレビュー ────────────────────────────────── -->
+            <TabItem Header="プレビュー">
+                <Grid Margin="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- ツールバー -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4">
+                        <TextBlock Text="対象ジョブ: " VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock x:Name="TxtPreviewJobId"
+                                   Text="（ジョブログタブで行を選択してください）"
+                                   VerticalAlignment="Center"
+                                   Foreground="#555555"
+                                   Width="350"
+                                   Margin="0,0,8,0"/>
+                        <Button x:Name="BtnPreview"
+                                Content="プレビュー生成"
+                                Width="120" Height="26"
+                                IsEnabled="False"
+                                ToolTip="選択したジョブの帳票を HTML としてプレビュー表示します"
+                                Click="BtnPreview_Click"/>
+                        <Button x:Name="BtnOpenHtml"
+                                Content="ブラウザで開く"
+                                Width="110" Height="26"
+                                Margin="6,0,0,0"
+                                IsEnabled="False"
+                                Click="BtnOpenHtml_Click"/>
+                    </StackPanel>
+
+                    <!-- WebBrowser プレビュー領域 -->
+                    <Border Grid.Row="1" BorderBrush="#CCCCCC" BorderThickness="1" Margin="4,0,4,4">
+                        <WebBrowser x:Name="PreviewBrowser"/>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ─── タブ4: 接続ログ ───────────────────────────────── -->
+            <TabItem Header="接続ログ">
+                <Grid Margin="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBox x:Name="TxtLog"
+                             Grid.Row="0"
+                             IsReadOnly="True"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             TextWrapping="NoWrap"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             Background="#FAFAFA"
+                             Margin="2"/>
+
+                    <Button Grid.Row="1"
+                            Content="ログクリア"
+                            Width="90" Height="24"
+                            HorizontalAlignment="Right"
+                            Margin="4"
+                            Click="BtnClearLog_Click"/>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
+    </DockPanel>
+</Window>

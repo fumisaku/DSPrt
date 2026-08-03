@@ -1,0 +1,12 @@
+{
+  "_comment": "PR_PRINT テストデータ — 準決勝進出者名簿（縦・12組・1ページフル確認用）",
+  "_note": "DA_Master: DA_Master_準決勝進出者名簿テスト_25組.json  DS_Status: DS_Status_準決勝進出者名簿テスト_12組.json",
+  "jobId": "test-semi-final-entry-012",
+  "layoutId": "SEMI_FINAL_ENTRY_LIST_A4",
+  "copies": 1,
+  "data": {
+    "KbnNo": "2",
+    "RndNo": "3",
+    "DGrpNo": ""
+  }
+}

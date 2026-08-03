@@ -1,0 +1,377 @@
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;font-size:14px;line-height:1.6;color:#1f2328;background:#fff;padding:32px 16px}
+  .container{max-width:760px;margin:0 auto}
+  h1{font-size:22px;font-weight:700;margin-bottom:4px}
+  h2{font-size:16px;font-weight:700;margin:28px 0 10px;padding-bottom:4px;border-bottom:2px solid #3b82d4;color:#3b82d4}
+  h3{font-size:14px;font-weight:700;margin:16px 0 6px}
+  p{margin-bottom:8px}
+  .subtitle{color:#57606a;font-size:13px;margin-bottom:24px}
+  pre{background:#f7f8fa;border:1px solid #e5e7eb;border-radius:4px;padding:14px 16px;font-family:"Cascadia Code","Consolas",monospace;font-size:12px;overflow-x:auto;margin:10px 0;line-height:1.5}
+  code{background:#f7f8fa;border:1px solid #e5e7eb;border-radius:3px;padding:1px 5px;font-family:"Cascadia Code","Consolas",monospace;font-size:12px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  th{background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 10px;text-align:left;font-weight:700}
+  td{border:1px solid #e5e7eb;padding:8px 10px;vertical-align:top}
+  tr:nth-child(even) td{background:#fafbfc}
+  .card{background:#f7f8fa;border:1px solid #e5e7eb;border-radius:6px;padding:14px 16px;margin:10px 0}
+  .info{background:#eff6ff;border-left:3px solid #3b82d4;padding:10px 14px;margin:12px 0;font-size:13px;border-radius:0 4px 4px 0}
+  .note{background:#fff8dc;border-left:3px solid #d4a017;padding:10px 14px;margin:12px 0;font-size:13px;border-radius:0 4px 4px 0}
+  .ok{background:#f0fdf4;border-left:3px solid #2da44e;padding:10px 14px;margin:12px 0;font-size:13px;border-radius:0 4px 4px 0}
+  .warn{background:#fff7ed;border-left:3px solid #d4600a;padding:10px 14px;margin:12px 0;font-size:13px;border-radius:0 4px 4px 0}
+  .step-row{display:flex;gap:12px;margin:8px 0;align-items:flex-start}
+  .step-num{flex-shrink:0;width:28px;height:28px;background:#3b82d4;color:#fff;font-weight:700;font-size:13px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .step-num-green{background:#2da44e}
+  ul{margin:6px 0 6px 20px}
+  li{margin:3px 0}
+  .tag-ok{display:inline-block;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:3px;padding:1px 6px}
+  .tag-new{display:inline-block;font-size:11px;font-weight:700;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;border-radius:3px;padding:1px 6px}
+  .screen{background:#fff;border:1px solid #bbb;border-radius:3px;padding:12px;font-size:11px;font-family:monospace;line-height:1.8;color:#333;margin:10px 0}
+  .screen .tb{background:#3b82d4;color:#fff;margin:-12px -12px 10px;padding:4px 10px;font-weight:700;border-radius:2px 2px 0 0;font-family:sans-serif;font-size:12px}
+  .screen .menu{background:#f0f0f0;border-bottom:1px solid #ccc;margin:0 -12px 8px;padding:4px 10px;font-family:sans-serif;color:#333}
+  .footer{text-align:center;font-size:12px;color:#57606a;margin-top:40px;padding-top:16px;border-top:1px solid #e5e7eb}
+  hr.div{border:none;border-top:1px solid #e5e7eb;margin:28px 0}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;margin-right:4px}
+  .badge-green{background:#2da44e;color:#fff}
+  .badge-blue{background:#3b82d4;color:#fff}
+  .badge-purple{background:#7c5cd8;color:#fff}
+  .method-box{border:1px solid #e5e7eb;border-radius:6px;margin:10px 0}
+  .method-header{background:#f7f8fa;padding:8px 14px;border-radius:6px 6px 0 0;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px}
+  .method-body{padding:12px 14px}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>DSPrt 帳票テンプレート作成手順</h1>
+<p class="subtitle">FastReport Community デザイナー | .frx ファイル | DSPrt への登録まで</p>
+
+
+<h2>Step 1 ： FastReport Community デザイナーのインストール</h2>
+
+<div class="ok">
+  <strong>GitHub から無料で入手できます（MIT ライセンス）</strong><br />
+  最新版: <strong>v2026.2.0</strong> — <code>FastReport.Community.2026.2.0.zip</code> にデザイナー exe が含まれています。
+</div>
+
+<div class="step-row"><div class="step-num">1</div><div>
+  以下の URL にアクセスしてダウンロードします。<br />
+  <code>https://github.com/FastReports/FastReport/releases/latest</code><br />
+  <strong>FastReport.Community.2026.2.0.zip</strong> をクリック
+</div></div>
+<div class="step-row"><div class="step-num">2</div><div>
+  ZIP を展開します。例: <code>C:\Tools\FastReportCommunity\</code>
+</div></div>
+<div class="step-row"><div class="step-num">3</div><div>
+  展開したフォルダ内の <strong>デザイナー exe</strong>（<code>FastReport.Designer.exe</code> 等）を確認します。<br />
+  ショートカットをデスクトップに作成しておくと便利です。
+</div></div>
+<div class="step-row"><div class="step-num">4</div><div>
+  <strong>.frx ファイルの関連付け</strong>を設定します（任意）。<br />
+  エクスプローラーで .frx ファイルを右クリック →「プログラムから開く」→ デザイナー exe を選択<br />
+  → DSPrt の「デザイナーで開く」ボタンが使えるようになります。
+</div></div>
+
+<div class="note">
+  <strong>注意:</strong> デザイナーのバージョン（2026.2.0）と DSPrt が使用する NuGet（2025.1.0）は異なります。<br />
+  .frx の XML フォーマットは後方互換性があるため、2026.2.0 デザイナーで作成した .frx は 2025.1.0 ランタイムで読み込めます。<br />
+  問題が発生した場合は DSPrt の NuGet も 2026.2.0 に更新してください（後述）。
+</div>
+
+
+<h2>Step 2 ： デザイナーの基本操作</h2>
+
+<div class="screen">
+  <div class="tb">FastReport Designer — NewReport.frx</div>
+  <div class="menu">ファイル(F)　編集(E)　挿入(I)　データ(D)　レポート(R)　表示(V)　ヘルプ(H)</div>
+  <div style="display:flex;gap:8px;font-size:10px">
+    <div style="width:130px;border-right:1px solid #ccc;padding-right:6px">
+      <div style="font-weight:700;margin-bottom:4px">▼ データソース</div>
+      <div>▶ DM_Masters</div>
+      <div style="margin-left:12px">■ DM_No</div>
+      <div style="margin-left:12px">■ DM_LDispName</div>
+      <div style="margin-left:12px">■ DM_PDispName</div>
+      <div style="margin:8px 0 4px;font-weight:700">▼ オブジェクト</div>
+      <div>■ TextObject</div>
+      <div>■ DataBand</div>
+      <div>■ Line / Shape</div>
+    </div>
+    <div style="flex:1">
+      <div style="border:1px solid #999;height:160px;padding:4px">
+        <div style="background:#ddd;text-align:center;padding:2px;margin-bottom:3px;font-size:10px">▲ ReportTitle — タイトル・競技会名など</div>
+        <div style="background:#e8e8ff;padding:2px;margin-bottom:3px;font-size:10px">■ PageHeader — 列ヘッダー行（背番号 / 選手名 / 所属 …）</div>
+        <div style="background:#e8ffe8;padding:2px;margin-bottom:3px;font-size:10px">➤ DataBand（繰り返し） — [DM_No] [DM_LDispName] …</div>
+        <div style="background:#ffe8e8;padding:2px;font-size:10px">▼ PageFooter — ページ番号 [PageN] / [TotalPages]</div>
+      </div>
+      <div style="font-size:10px;color:#57606a;margin-top:3px">↑ フィールドはデータソースパネルからドラッグ&amp;ドロップ</div>
+    </div>
+  </div>
+</div>
+
+<h3>帳票の基本構成（バンド）</h3>
+<table>
+  <thead><tr><th>バンド名</th><th>用途</th><th>DSPrt での使用例</th></tr></thead>
+  <tbody>
+    <tr><td><strong>ReportTitle</strong></td><td>帳票の先頭に1回だけ表示</td><td>「選手一覧表」タイトル・競技会名</td></tr>
+    <tr><td><strong>PageHeader</strong></td><td>各ページ上部に表示</td><td>列ヘッダー（背番号・氏名・所属）</td></tr>
+    <tr><td><strong>DataBand</strong></td><td>データ行数だけ繰り返し</td><td>選手1行・結果1行</td></tr>
+    <tr><td><strong>GroupHeader/Footer</strong></td><td>グループ単位で挿入</td><td>区分ごとのヘッダー・集計</td></tr>
+    <tr><td><strong>PageFooter</strong></td><td>各ページ下部に表示</td><td>ページ番号</td></tr>
+    <tr><td><strong>ReportSummary</strong></td><td>帳票の末尾に1回だけ表示</td><td>合計人数・集計</td></tr>
+  </tbody>
+</table>
+
+
+<h2>Step 3 ： データソースの定義</h2>
+
+<p>デザイナーでデータソースを登録することで、フィールドをドラッグ＆ドロップできるようになります。</p>
+
+<div class="step-row"><div class="step-num">1</div><div>
+  メニュー <strong>データ(D) → データソースを追加</strong> を選択
+</div></div>
+<div class="step-row"><div class="step-num">2</div><div>
+  <strong>Business Object / JSON ソース</strong> または <strong>DataBase</strong> を選択<br />
+  DSPrt では「<strong>XML / JSON ファイル</strong>」か「<strong>Business Objects（DataTable）</strong>」を選ぶ
+</div></div>
+<div class="step-row"><div class="step-num">3</div><div>
+  <code>./Reports/TestData/</code> にあるサンプル JSON を読み込む<br />
+  例: <code>PR_PRINT_FinalResult_テスト.json</code> の <code>"Results"</code> 配列を登録
+</div></div>
+<div class="step-row"><div class="step-num">4</div><div>
+  カラム名（フィールド名）が左側のデータソースパネルに表示されたら完了
+</div></div>
+
+<div class="info">
+  <strong>フィールドの記述方法：</strong><br />
+  テキストオブジェクトに <code>[テーブル名.列名]</code> 形式で記述します。<br />
+  例: <code>[Results.PlayerName]</code>、<code>[Results.Rank]</code>、<code>[DA_Master.DA_CompName]</code>
+</div>
+
+
+<h2>Step 4 ： データ種別ごとのデータソース設定</h2>
+
+<p>DSPrt では帳票の <code>dataType</code> によって使えるデータが決まります。</p>
+
+<table>
+  <thead><tr><th>dataType</th><th>データソース名</th><th>主なフィールド例</th><th>helpテンプレート</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>DA_Master</code></td>
+      <td><code>DM_Masters</code>（選手）<br /><code>DB_KUBUNs</code>（区分）<br /><code>DJ_MEMBERs</code>（審判）</td>
+      <td><code>DM_No</code>, <code>DM_LDispName</code>, <code>DM_PDispName</code>, <code>DM_Ctry</code></td>
+      <td>PlayerList_A4.frx</td>
+    </tr>
+    <tr>
+      <td><code>DS_Status</code></td>
+      <td><code>DS_Status</code>（進行）<br /><code>Heats</code>（ヒート）</td>
+      <td>ヒート番号・区分・進行状態</td>
+      <td>—（未作成）</td>
+    </tr>
+    <tr>
+      <td><code>DV_Result</code></td>
+      <td><code>Results</code>（結果）<br /><code>Awards</code>（表彰）</td>
+      <td><code>Rank</code>, <code>PlayerName</code>, <code>Score</code>, <code>CmpName</code></td>
+      <td>FinalResult_A4.frx<br />Award_Certificate.frx</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<h2>Step 5 ： テンプレート作成の実践例</h2>
+
+<h3>例A ： 決勝入賞者名簿（FINAL_RESULT_A4）</h3>
+<div class="method-box">
+  <div class="method-header">📋 作成手順</div>
+  <div class="method-body">
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">1</div><div>
+      デザイナーで新規レポートを作成（A4縦、余白10mm）
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">2</div><div>
+      データソースに <code>PR_PRINT_FinalResult_テスト.json</code> の <code>Results</code> 配列を登録
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">3</div><div>
+      <strong>ReportTitle</strong> バンド:<br />
+      テキスト「決勝入賞者名簿」（16pt 太字 中央）<br />
+      テキスト「[CmpName]　[KbnName]」（9pt 中央）
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">4</div><div>
+      <strong>PageHeader</strong> バンド:<br />
+      列ヘッダー行（順位・背番号・氏名・所属・得点）を TextObject で配置
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">5</div><div>
+      <strong>DataBand</strong> に <code>Results</code> を設定し、フィールドをドラッグ配置:<br />
+      <code>[Results.Rank]</code> / <code>[Results.PlayerNo]</code> / <code>[Results.PlayerName]</code> / <code>[Results.ClubName]</code> / <code>[Results.Score]</code>
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">6</div><div>
+      <strong>PageFooter</strong>: <code>[PageN] / [TotalPages]</code> を右端に配置
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">7</div><div>
+      <code>./Reports/FinalResult_A4.frx</code> に保存（既存を上書き）
+    </div></div>
+  </div>
+</div>
+
+<h3>例B ： 表彰状（AWARD_CERTIFICATE）</h3>
+<div class="method-box">
+  <div class="method-header">🏆 作成手順</div>
+  <div class="method-body">
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">1</div><div>
+      A4縦、余白15mm で新規作成
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">2</div><div>
+      <strong>DataBand</strong> の DataSource を <code>Awards</code> に設定<br />
+      （1件1ページにするため DataBand の「<strong>StartNewPage</strong>」プロパティを ON）
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">3</div><div>
+      固定テキスト「表　彰　状」を大きく配置（24pt 以上、縦中央）
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">4</div><div>
+      差し込みフィールドを配置:<br />
+      <code>[Awards.PlayerName]</code>（受賞者名 / 18pt）<br />
+      <code>[Awards.KbnName]</code> <code>[Awards.RankName]</code>（区分・順位）<br />
+      <code>[Awards.CmpName]</code>（競技会名）
+    </div></div>
+    <div class="step-row"><div class="step-num step-num-green" style="background:#2da44e">5</div><div>
+      <code>./Reports/Award_Certificate.frx</code> に保存
+    </div></div>
+  </div>
+</div>
+
+
+<h2>Step 6 ： DSPrt.json への登録</h2>
+
+<p>作成した .frx は <code>DSPrt.json</code>（または <code>DSPrt_General.json</code> / <code>DSPrt_Award.json</code>）の <code>Layouts</code> に登録します。</p>
+
+<pre>{
+  "Layouts": [
+    {
+      "LayoutId":    "FINAL_RESULT_A4",
+      "FrxPath":     "./Reports/FinalResult_A4.frx",
+      "DataType":    "DV_Result",
+      "PrinterName": "Canon TR8600",
+      "Copies":       2,
+      "Duplex":       "OneSided",
+      "PaperSize":    "A4"
+    },
+    {
+      "LayoutId":    "AWARD_CERTIFICATE",
+      "FrxPath":     "./Reports/Award_Certificate.frx",
+      "DataType":    "DV_Result",
+      "PrinterName": "Canon TR8600 Award",
+      "Copies":       1,
+      "Duplex":       "OneSided",
+      "PaperSize":    "A4"
+    }
+  ]
+}</pre>
+
+<table>
+  <thead><tr><th>フィールド</th><th>設定値の例</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>LayoutId</code></td><td><code>FINAL_RESULT_A4</code></td><td>サーバーから指定するキー。大文字推奨</td></tr>
+    <tr><td><code>FrxPath</code></td><td><code>./Reports/FinalResult_A4.frx</code></td><td>実行ファイルからの相対パス</td></tr>
+    <tr><td><code>DataType</code></td><td><code>DV_Result</code> / <code>DA_Master</code> / <code>DS_Status</code></td><td>帳票が使うデータ種別</td></tr>
+    <tr><td><code>PrinterName</code></td><td>Windowsのプリンター名と完全一致</td><td>空欄の場合はデフォルトプリンター</td></tr>
+    <tr><td><code>Copies</code></td><td><code>1</code> 〜</td><td>電文の copies で上書き可能</td></tr>
+    <tr><td><code>Duplex</code></td><td><code>OneSided</code> / <code>TwoSidedLongEdge</code></td><td>両面印刷設定</td></tr>
+    <tr><td><code>PaperSize</code></td><td><code>A4</code> / <code>A3</code> / <code>B5</code></td><td>Windowsの用紙名と一致させる</td></tr>
+  </tbody>
+</table>
+
+
+<h2>Step 7 ： DSPrt でのプレビュー確認</h2>
+
+<div class="step-row"><div class="step-num">1</div><div>
+  DSPrt を起動して「接続」（またはオフラインのままでも可）
+</div></div>
+<div class="step-row"><div class="step-num">2</div><div>
+  「帳票設定」タブで作成した layoutId が一覧に表示されているか確認
+</div></div>
+<div class="step-row"><div class="step-num">3</div><div>
+  <strong>手動プレビュー確認（開発時）</strong>: TestData の JSON を使ってデバッグ用に簡易テストコードを追加するか、
+  サーバーから PR_PRINT を実際に送信して「プレビュー」タブで HTML 表示を確認
+</div></div>
+
+
+<h2>参考 ： よく使う .frx XML 記法</h2>
+
+<table>
+  <thead><tr><th>用途</th><th>.frx XML 記法</th></tr></thead>
+  <tbody>
+    <tr><td>フィールド表示</td><td><code>Text="[Results.PlayerName]"</code></td></tr>
+    <tr><td>ページ番号</td><td><code>Text="[PageN] / [TotalPages]"</code></td></tr>
+    <tr><td>今日の日付</td><td><code>Text="[Date]"</code></td></tr>
+    <tr><td>罫線（全辺）</td><td><code>Border.Lines="All"</code></td></tr>
+    <tr><td>背景色</td><td><code>FillColor="LightGray"</code></td></tr>
+    <tr><td>フォント</td><td><code>Font="MS Gothic, 10pt, style=Bold"</code></td></tr>
+    <tr><td>横位置揃え</td><td><code>HorzAlign="Center"</code> / <code>Left</code> / <code>Right"</code></td></tr>
+    <tr><td>縦位置揃え</td><td><code>VertAlign="Center"</code></td></tr>
+    <tr><td>DataBand のデータソース指定</td><td><code>&lt;DataBand DataSource="Results" ...&gt;</code></td></tr>
+    <tr><td>1行1ページ</td><td>DataBand に <code>StartNewPage="true"</code></td></tr>
+    <tr><td>サイズ単位</td><td>mm × 3.78 = 内部単位（例 A4幅 210mm → <code>PaperWidth="210"</code>）</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>フォントの注意:</strong>
+  <code>MS Gothic</code> / <code>MS Mincho</code> 等の日本語フォントは Windows に標準搭載されています。
+  実際の印刷結果と一致させるため、デザイナーで確認してから保存してください。
+</div>
+
+
+<h2>帳票テンプレート実装優先順位</h2>
+
+<table>
+  <thead><tr><th>優先</th><th>layoutId</th><th>帳票名</th><th>dataType</th><th>状態</th></tr></thead>
+  <tbody>
+    <tr style="background:#f0fdf4">
+      <td><span class="badge badge-green">高</span></td>
+      <td><code>PLAYER_LIST_A4</code></td><td>選手一覧表</td><td>DA_Master</td>
+      <td><span class="tag-ok">サンプルあり</span></td>
+    </tr>
+    <tr style="background:#f0fdf4">
+      <td><span class="badge badge-green">高</span></td>
+      <td><code>FINAL_RESULT_A4</code></td><td>決勝入賞者名簿</td><td>DV_Result</td>
+      <td><span class="tag-ok">サンプルあり</span></td>
+    </tr>
+    <tr style="background:#f0fdf4">
+      <td><span class="badge badge-green">高</span></td>
+      <td><code>AWARD_CERTIFICATE</code></td><td>表彰状</td><td>DV_Result</td>
+      <td><span class="tag-ok">サンプルあり</span></td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-green">高</span></td>
+      <td><code>CHECK_SHEET_A4</code></td><td>受付用チェックシート</td><td>DA_Master</td>
+      <td><span class="tag-new">未作成</span></td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">中</span></td>
+      <td><code>HEAT_UP_LIST_A4</code></td><td>ヒート・アップ数一覧表</td><td>DA_Master+DS_Status</td>
+      <td><span class="tag-new">未作成</span></td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">中</span></td>
+      <td><code>TIMETABLE_A4</code></td><td>タイムテーブル</td><td>DS_Status</td>
+      <td><span class="tag-new">未作成</span></td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">中</span></td>
+      <td><code>FINAL_ENTRY_A4</code></td><td>決勝出場者名簿</td><td>DS_Status+DA_Master</td>
+      <td><span class="tag-new">未作成</span></td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-purple">低</span></td>
+      <td><code>JDSF_FEE_A4</code>他</td><td>各種納付書・報告書</td><td>DA_Master</td>
+      <td><span class="tag-new">未作成</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr class="div" />
+<div class="footer">Made with IBM Bob</div>
+</div>
+</body>
+</html>
