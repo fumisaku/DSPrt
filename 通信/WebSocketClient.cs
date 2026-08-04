@@ -144,13 +144,14 @@ namespace DSPrt
         private async Task ReceiveLoop()
         {
             var buffer = new byte[8192];
-            var messageBuilder = new StringBuilder();
+            // バイト列を累積してから一括 UTF-8 デコードする（マルチバイト文字の分断を防ぐ）
+            var byteAccumulator = new System.IO.MemoryStream();
 
             try
             {
                 while (_client != null && IsConnected && !_cancellationTokenSource!.Token.IsCancellationRequested)
                 {
-                    messageBuilder.Clear();
+                    byteAccumulator.SetLength(0);
                     WebSocketReceiveResult result;
 
                     do
@@ -171,15 +172,14 @@ namespace DSPrt
 
                         if (result.MessageType == WebSocketMessageType.Text)
                         {
-                            string chunk = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                            messageBuilder.Append(chunk);
+                            byteAccumulator.Write(buffer, 0, result.Count);
                         }
                     }
                     while (!result.EndOfMessage);
 
-                    if (messageBuilder.Length > 0)
+                    if (byteAccumulator.Length > 0)
                     {
-                        string message = messageBuilder.ToString();
+                        string message = Encoding.UTF8.GetString(byteAccumulator.GetBuffer(), 0, (int)byteAccumulator.Length);
                         _log.LogAdd($"電文受信: {message.Substring(0, Math.Min(200, message.Length))}...", _log.INFO);
 
                         Application.Current?.Dispatcher.Invoke(() =>

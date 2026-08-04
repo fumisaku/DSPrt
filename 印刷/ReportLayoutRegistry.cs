@@ -41,5 +41,25 @@ namespace DSPrt.印刷
         public bool Contains(string layoutId) => _map.ContainsKey(layoutId);
 
         public IEnumerable<LayoutSetting> All => _map.Values;
+
+        /// <summary>
+        /// 指定 layoutId のプリンター名を実行時に更新する。
+        /// AppSettings.Instance.Layouts の該当エントリも同時に更新するため、
+        /// AppSettings.Save() を呼ぶことで DSPrt.json に永続化できる。
+        /// </summary>
+        public void UpdatePrinterName(string layoutId, string printerName)
+        {
+            if (!_map.TryGetValue(layoutId, out var setting)) return;
+
+            setting.PrinterName = printerName;
+
+            // AppSettings 側も同期（Save で永続化できるよう）
+            var appLayout = AppSettings.Instance.Layouts
+                .Find(l => string.Equals(l.LayoutId, layoutId, System.StringComparison.OrdinalIgnoreCase));
+            if (appLayout != null)
+                appLayout.PrinterName = printerName;
+
+            _log.LogAdd($"[ReportLayoutRegistry] プリンター更新: layoutId={layoutId}, printer={printerName}", _log.INFO);
+        }
     }
 }

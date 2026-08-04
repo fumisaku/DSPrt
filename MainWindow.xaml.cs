@@ -192,6 +192,62 @@ namespace DSPrt
                 Data     = req.Data
             };
 
+            // ── [診断ログ] bib=20・種目C・Eジャッジの素点を受信データから確認 ──
+            try
+            {
+                if (req.Data != null)
+                {
+                    var dataStr  = req.Data.ToJsonString();
+
+                    // 受信データをファイルに保存（種目C bib=20 関連のデバッグ用）
+                    try
+                    {
+                        string diagPath = System.IO.Path.Combine(
+                            System.IO.Path.GetTempPath(), $"DSPrt_ReceivedData_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                        System.IO.File.WriteAllText(diagPath, dataStr, System.Text.Encoding.UTF8);
+                        AddLog($"[診断] 受信Data保存: {diagPath}");
+                    }
+                    catch { }
+
+                    var dataObj  = Newtonsoft.Json.Linq.JObject.Parse(dataStr);
+                    var shomokuArr = dataObj["種目結果"] as Newtonsoft.Json.Linq.JArray;
+                    if (shomokuArr != null)
+                    {
+                        foreach (var shomoku in shomokuArr.OfType<Newtonsoft.Json.Linq.JObject>())
+                        {
+                            if (shomoku["種目記号"]?.ToString() != "C") continue;
+                            var senshu = shomoku["選手結果"] as Newtonsoft.Json.Linq.JArray;
+                            if (senshu == null) break;
+                            foreach (var sk in senshu.OfType<Newtonsoft.Json.Linq.JObject>())
+                            {
+                                if (sk["背番号"]?.ToString() != "20") continue;
+                                var judges = sk["ジャッジ詳細結果"] as Newtonsoft.Json.Linq.JArray;
+                                if (judges == null) break;
+                                // 素点の型情報も含めて出力
+                                var scores = string.Join(", ", judges.OfType<Newtonsoft.Json.Linq.JObject>()
+                                    .Select(j => $"{j["ジャッジ記号"]}={j["素点"]}(type={j["素点"]?.Type})"));
+                                AddLog($"[診断] 受信Data: 種目C・bib=20 ジャッジ詳細 → {scores}");
+                                break;
+                            }
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        AddLog($"[診断] 受信Data: 種目結果 キーなし (keys={string.Join(",", dataObj.Properties().Select(p => p.Name).Take(10))})");
+                    }
+                }
+                else
+                {
+                    AddLog("[診断] 受信Data: null");
+                }
+            }
+            catch (Exception diagEx)
+            {
+                AddLog($"[診断] 受信Data 解析エラー: {diagEx.Message}");
+            }
+            // ── [診断ログ] ここまで ──
+
             // 印刷キューに追加
             if (_printService != null)
             {
@@ -367,9 +423,10 @@ namespace DSPrt
         private void LayoutGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             bool hasSelection = LayoutGrid.SelectedItem is LayoutSetting;
-            BtnOpenDesigner.IsEnabled = hasSelection;
-            BtnTestPrint.IsEnabled    = hasSelection;
-            BtnTestPreview.IsEnabled  = hasSelection;
+            BtnOpenDesigner.IsEnabled       = hasSelection;
+            BtnTestPrint.IsEnabled          = hasSelection;
+            BtnTestPreview.IsEnabled        = hasSelection;
+            BtnChangeLayoutPrinter.IsEnabled = hasSelection;
         }
 
         private void BtnOpenDesigner_Click(object sender, RoutedEventArgs e)
@@ -403,6 +460,59 @@ namespace DSPrt
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
+        }
+
+        // ─── プリンター変更 ──────────────────────────────────────────
+
+        /// <summary>
+        /// デフォルトプリンターの変更（DSPrt.json の PrintSettings.DefaultPrinterName を更新）
+        /// </summary>
+        private void BtnChangeDefaultPrinter_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = ShowPrinterSelectDialog("デフォルトプリンターを選択してください");
+            if (selected == null) return;
+
+            AppSettings.Instance.PrintSettings.DefaultPrinterName = selected;
+            AppSettings.Save();
+            RefreshLayoutTab();
+            AddLog($"デフォルトプリンター変更: {selected}");
+        }
+
+        /// <summary>
+        /// 選択レイアウトのプリンター変更（DSPrt.json の該当 Layout.PrinterName を更新）
+        /// </summary>
+        private void BtnChangeLayoutPrinter_Click(object sender, RoutedEventArgs e)
+        {
+            if (LayoutGrid.SelectedItem is not LayoutSetting layout) return;
+
+            var selected = ShowPrinterSelectDialog($"「{layout.LayoutId}」のプリンターを選択してください");
+            if (selected == null) return;
+
+            // 実行中 PrintService の Registry を更新
+            _printService?.Registry.UpdatePrinterName(layout.LayoutId, selected);
+
+            // AppSettings 経由で DSPrt.json に保存
+            var appLayout = AppSettings.Instance.Layouts
+                .Find(l => string.Equals(l.LayoutId, layout.LayoutId, StringComparison.OrdinalIgnoreCase));
+            if (appLayout != null)
+                appLayout.PrinterName = selected;
+            AppSettings.Save();
+
+            // DataGrid を再描画
+            RefreshLayoutTab();
+            AddLog($"プリンター変更: layoutId={layout.LayoutId}, printer={selected}");
+        }
+
+        /// <summary>
+        /// WPF の PrintDialog を使ってプリンターを選択させ、選択されたプリンター名を返す。
+        /// キャンセル時は null を返す。
+        /// </summary>
+        private string? ShowPrinterSelectDialog(string description)
+        {
+            // WPF PrintDialog でプリンター一覧を表示
+            var dlg = new System.Windows.Controls.PrintDialog();
+            if (dlg.ShowDialog() != true) return null;
+            return dlg.PrintQueue.FullName;
         }
 
         private void BtnOpenReportsFolder_Click(object sender, RoutedEventArgs e)
@@ -601,8 +711,10 @@ namespace DSPrt
             }
             finally
             {
-                BtnTestPrint.IsEnabled   = LayoutGrid.SelectedItem is LayoutSetting;
-                BtnTestPreview.IsEnabled = LayoutGrid.SelectedItem is LayoutSetting;
+                bool hasSel = LayoutGrid.SelectedItem is LayoutSetting;
+                BtnTestPrint.IsEnabled           = hasSel;
+                BtnTestPreview.IsEnabled         = hasSel;
+                BtnChangeLayoutPrinter.IsEnabled = hasSel;
 
                 // ローカル作成した場合のみ Dispose
                 if (_printService == null || _client == null)

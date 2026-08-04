@@ -104,7 +104,12 @@
                     <!-- デフォルトプリンター表示 -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4,4,4,8">
                         <TextBlock Text="デフォルトプリンター: " VerticalAlignment="Center" FontWeight="Bold"/>
-                        <TextBlock x:Name="TxtDefaultPrinter" Text="-" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="TxtDefaultPrinter" Text="-" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Button x:Name="BtnChangeDefaultPrinter"
+                                Content="変更..."
+                                Width="72" Height="22"
+                                ToolTip="印刷設定のデフォルトプリンターを変更します"
+                                Click="BtnChangeDefaultPrinter_Click"/>
                     </StackPanel>
 
                     <!-- レイアウト設定一覧 -->
@@ -131,6 +136,13 @@
 
                     <!-- 帳票設定操作ボタン -->
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="4">
+                        <Button x:Name="BtnChangeLayoutPrinter"
+                                Content="プリンター変更..."
+                                Width="130" Height="28"
+                                Margin="0,0,6,0"
+                                IsEnabled="False"
+                                ToolTip="選択した帳票のプリンターを変更します（DSPrt.json に保存）"
+                                Click="BtnChangeLayoutPrinter_Click"/>
                         <Button x:Name="BtnTestPrint"
                                 Content="▶ テスト印刷"
                                 Width="120" Height="28"

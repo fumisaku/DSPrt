@@ -102,7 +102,7 @@
         <TableColumn Name="ColH12" Width="48.77"/>
         <TableRow Name="RowH1" Height="28.35">
           <TableCell Name="HCell01"><TextObject Name="HText5" Width="48.77"  Height="28.35" Dock="Fill" Border.Lines="All" Text="背番号" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
-          <TableCell Name="HCell02"><TextObject Name="HText6" Width="114.92" Height="28.35" Dock="Fill" Border.Lines="All" Text="L選手名" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
+          <TableCell Name="HCell02"><TextObject Name="HText6" Width="114.92" Height="28.35" Dock="Fill" Border.Lines="All" Text="選手名" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
           <TableCell Name="HCell03"><TextObject Name="D01" Width="48.77" Height="28.35" Dock="Fill" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
           <TableCell Name="HCell04"><TextObject Name="D02" Width="48.77" Height="28.35" Dock="Fill" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>
           <TableCell Name="HCell05"><TextObject Name="D03" Width="48.77" Height="28.35" Dock="Fill" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/></TableCell>

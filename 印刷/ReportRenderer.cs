@@ -258,8 +258,8 @@ namespace DSPrt.印刷
                         BindCheckScoreList(report, job.Data, pairsPerPage: 32,
                             maxJudgeColsPerPage: 30, maxFrxCheckCols: 34);
                     else
-                        // 横版: A4横 最大16行・最大65ジャッジ列/ページ（C06〜C74=69列）
-                        BindCheckScoreList(report, job.Data, pairsPerPage: 16,
+                        // 横版: A4横 最大20行・最大65ジャッジ列/ページ（C06〜C74=69列）
+                        BindCheckScoreList(report, job.Data, pairsPerPage: 20,
                             maxJudgeColsPerPage: 65, maxFrxCheckCols: 69);
                     break;
 
@@ -353,6 +353,16 @@ namespace DSPrt.印刷
             else
                 doc.PrinterSettings.Duplex = Duplex.Simplex;
 
+            // 用紙向きを Print() 前に設定する（イベント内での変更は反映されないため）
+            // 最初のページの PaperWidth/PaperHeight で判定する
+            if (pageCount > 0)
+            {
+                var firstPage = report.PreparedPages.GetPage(0);
+                bool firstIsLandscape = firstPage.PaperWidth > firstPage.PaperHeight;
+                doc.DefaultPageSettings.Landscape = firstIsLandscape;
+                _log.LogAdd($"[PrintDirect] 用紙向き: {(firstIsLandscape ? "横" : "縦")} ({firstPage.PaperWidth}×{firstPage.PaperHeight}mm)", _log.INFO);
+            }
+
             doc.PrintPage += (sender, e) =>
             {
                 if (pageIndex >= pageCount) { e.HasMorePages = false; return; }
@@ -363,11 +373,6 @@ namespace DSPrt.印刷
                 // GetPage() で取得した PreparedPage の TextObject を scaleX 倍に補正する。
                 // scaleX = 100/96 ≈ 1.042 だが体感では変化が小さすぎるため微調整する。
                 AdjustFontSizesForPrinting(page, 1.2f);
-
-                // frx の用紙サイズ（mm）から横向き判定
-                bool isLandscape = page.PaperWidth > page.PaperHeight;
-                if (doc.DefaultPageSettings.Landscape != isLandscape)
-                    doc.DefaultPageSettings.Landscape = isLandscape;
 
                 var g = e.Graphics!;
 
@@ -626,6 +631,77 @@ namespace DSPrt.印刷
         ///   DS_PRGDANCEs[0]（第1種目）の DS_PRGHEATs を基に HeatId→HeatNo マップを作成。
         ///   PlayerAssignments の AssignedHeatIds[0] を使いヒート番号を解決する。
         /// </summary>
+        /// <summary>
+        /// DA_Master の DM_MEMBERs から選手情報マップ（背番号→選手情報）を構築する。
+        /// targetMasNo: 使用するマスタ番号（DB_KbnSenM の値）。
+        ///   指定マスタ番号が存在しない場合はブランク（フォールバックなし）。
+        /// </summary>
+        private static Dictionary<string, (string lName, string pName, string lKana, string pKana, string lCtry, string pCtry)>
+            BuildPlayerInfoMap(JObject daJson, int targetMasNo)
+        {
+            var result = new Dictionary<string, (string, string, string, string, string, string)>();
+            var members = daJson["DM_MEMBERs"] as JArray;
+            if (members == null) return result;
+
+            foreach (var m in members.OfType<JObject>())
+            {
+                var masterList = m["DM_MASTERs"] as JArray;
+                if (masterList == null) continue;
+
+                // 指定マスタ番号のエントリのみを使用（存在しない場合はスキップ）
+                JObject? chosen = masterList.OfType<JObject>()
+                    .FirstOrDefault(ms => ms["DM_MasNo"]?.ToObject<int>() == targetMasNo);
+
+                if (chosen == null) continue;
+
+                string no    = chosen["DM_No"]?.ToString() ?? "";
+                if (string.IsNullOrEmpty(no)) continue;
+
+                string lName = chosen["DM_LDispName"]?.ToString() ?? "";
+                string pName = chosen["DM_PDispName"]?.ToString() ?? "";
+                string lKana = chosen["DM_LKana"]?.ToString() ?? "";
+                string pKana = chosen["DM_PKana"]?.ToString() ?? "";
+                string ctry  = chosen["DM_Ctry"]?.ToString()  ?? "";
+                string lCtryRaw = chosen["DM_LCtry"]?.ToString() ?? "";
+                string pCtryRaw = chosen["DM_PCtry"]?.ToString() ?? "";
+                string lCtry = string.IsNullOrEmpty(lCtryRaw) ? ctry : lCtryRaw;
+                string pCtry = string.IsNullOrEmpty(pCtryRaw) ? ctry : pCtryRaw;
+
+                result[no] = (lName, pName, lKana, pKana, lCtry, pCtry);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// DA_Master の DM_MEMBERs から選手マスタマップ（背番号→JObject）を構築する。
+        /// targetMasNo: 使用するマスタ番号（DB_KbnSenM の値）。
+        ///   指定マスタ番号が存在しない場合はその選手はマップに含めない（フォールバックなし）。
+        /// </summary>
+        private static Dictionary<string, JObject>
+            BuildMasterMap(JObject daJson, int targetMasNo)
+        {
+            var result = new Dictionary<string, JObject>(StringComparer.Ordinal);
+            var members = daJson["DM_MEMBERs"] as JArray;
+            if (members == null) return result;
+
+            foreach (var m in members.OfType<JObject>())
+            {
+                var masterList = m["DM_MASTERs"] as JArray;
+                if (masterList == null) continue;
+
+                // 指定マスタ番号のエントリのみを使用（存在しない場合はスキップ）
+                JObject? chosen = masterList.OfType<JObject>()
+                    .FirstOrDefault(ms => ms["DM_MasNo"]?.ToObject<int>() == targetMasNo);
+
+                if (chosen == null) continue;
+
+                string no = chosen["DM_No"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(no) && !result.ContainsKey(no))
+                    result[no] = chosen;
+            }
+            return result;
+        }
+
         private void BindPlayerNoticeExtra(Report report, JsonNode? fallbackData)
         {
             // DS_Status/DA_Master がない場合（テスト時等）は job.Data の Heats[] からフォールバック
@@ -714,23 +790,13 @@ namespace DSPrt.印刷
                 int totalHeats = heatIdToNo.Count;
 
                 // ── DA_Master から選手名解決マップ ────────────────────────────────────
-                var playerNameMap = new Dictionary<string, string>();
-                var members = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
-                    {
-                        var masters = m["DM_MASTERs"] as JArray;
-                        if (masters == null) continue;
-                        foreach (var master in masters.OfType<JObject>())
-                        {
-                            string no   = master["DM_No"]?.ToString() ?? "";
-                            string name = master["DM_LDispName"]?.ToString() ?? "";
-                            if (!string.IsNullOrEmpty(no))
-                                playerNameMap[no] = name;
-                        }
-                    }
-                }
+                int targetMasNo0 = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senM0) ? senM0 : 1;
+                var infoMap0     = BuildPlayerInfoMap(daJson, targetMasNo0);
+                // 後方互換のため (string playerName) 形式のマップに変換
+                var playerNameMap = infoMap0.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value.lName,
+                    StringComparer.Ordinal);
 
                 // ── HeatPlayers テーブル生成 ──────────────────────────────────────────
                 // HeatNo -> List<(PlayerNo, PlayerName)> で集約
@@ -1017,29 +1083,13 @@ namespace DSPrt.印刷
                     : maxHeatCount;
 
                 // ── 選手名解決マップ ─────────────────────────────────────────────
-                var playerNameMap = new Dictionary<string, string>();
-                var members = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
-                    {
-                        var masterList = m["DM_MASTERs"] as JArray;
-                        if (masterList == null) continue;
-                        foreach (var master in masterList.OfType<JObject>())
-                        {
-                            string no   = master["DM_No"]?.ToString() ?? "";
-                            // L選手（リーダー）の苗字のみを使用
-                            string lName = master["DM_LDispName"]?.ToString()
-                                           ?? master["DM_LName"]?.ToString() ?? "";
-                            // 苗字のみ抽出（スペース区切りの先頭）
-                            string lastName = lName.Contains(' ')
-                                ? lName.Split(' ')[0]
-                                : lName;
-                            if (!string.IsNullOrEmpty(no))
-                                playerNameMap[no] = lastName;
-                        }
-                    }
-                }
+                int targetMasNoH = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senMH) ? senMH : 1;
+                var infoMapH     = BuildPlayerInfoMap(daJson, targetMasNoH);
+                // 苗字のみ（スペース区切りの先頭）に変換
+                var playerNameMap = infoMapH.ToDictionary(
+                    kv => kv.Key,
+                    kv => ExtractLastName(kv.Value.lName),
+                    StringComparer.Ordinal);
 
                 // ── ヒート別選手リスト構築（最大6ヒート行 × 最大40名（行分割20名ずつ））──
                 // heatRows[rowIdx] = (heatNo, players[])
@@ -1069,12 +1119,15 @@ namespace DSPrt.印刷
                 }
 
                 // 背番号数値順ソート → 20名ずつ分割して heatRows に追加
+                // 選手が1人もいないヒートは行を追加しない（空行が印刷されるのを防ぐ）
                 foreach (var kv in heatDict)
                 {
                     var sorted = kv.Value.OrderBy(p =>
                         int.TryParse(p.no, out int n) ? n : int.MaxValue).ToList();
 
-                    for (int offset = 0; offset < Math.Max(1, sorted.Count); offset += 20)
+                    if (sorted.Count == 0) continue;
+
+                    for (int offset = 0; offset < sorted.Count; offset += 20)
                     {
                         var chunk = sorted.Skip(offset).Take(20).ToList();
                         heatRows.Add((kv.Key, chunk));
@@ -1401,11 +1454,15 @@ namespace DSPrt.印刷
                 }
 
                 // 背番号数値順ソート → 20名ずつ分割して heatRows に追加
+                // 選手が1人もいないヒートは行を追加しない（空行が印刷されるのを防ぐ）
                 foreach (var kv in heatDict)
                 {
                     var sorted = kv.Value.OrderBy(p =>
                         int.TryParse(p.no, out int n) ? n : int.MaxValue).ToList();
-                    for (int offset = 0; offset < Math.Max(1, sorted.Count); offset += 20)
+
+                    if (sorted.Count == 0) continue;
+
+                    for (int offset = 0; offset < sorted.Count; offset += 20)
                     {
                         var chunk = sorted.Skip(offset).Take(20).ToList();
                         heatRows.Add((kv.Key, chunk));
@@ -1874,26 +1931,19 @@ namespace DSPrt.印刷
                 }
 
                 // ── 選手名解決マップ ────────────────────────────────────────────────
-                var playerNameMap = new Dictionary<string, string>();
-                var members = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
+                // DB_KbnSenM で指定されたマスタ番号の選手情報を使用する（選手マスタ考慮）
+                int targetMasNoV = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senMV) ? senMV : 1;
+                var infoMapV     = BuildPlayerInfoMap(daJson, targetMasNoV);
+                // 表示形式:「L選手名の苗字・選手名の苗字」（例: 田中・鈴木）
+                var playerNameMap = infoMapV.ToDictionary(
+                    kv => kv.Key,
+                    kv =>
                     {
-                        var masterList = m["DM_MASTERs"] as JArray;
-                        if (masterList == null) continue;
-                        foreach (var master in masterList.OfType<JObject>())
-                        {
-                            string no    = master["DM_No"]?.ToString() ?? "";
-                            string lName = master["DM_LDispName"]?.ToString()
-                                           ?? master["DM_LName"]?.ToString() ?? "";
-                            // 苗字のみ（スペース区切りの先頭要素）
-                            string lastName = lName.Contains(' ') ? lName.Split(' ')[0] : lName;
-                            if (!string.IsNullOrEmpty(no))
-                                playerNameMap[no] = lastName;
-                        }
-                    }
-                }
+                        string lLast = ExtractLastName(kv.Value.lName);
+                        string pLast = ExtractLastName(kv.Value.pName);
+                        return string.IsNullOrEmpty(pLast) ? lLast : $"{lLast}・{pLast}";
+                    },
+                    StringComparer.Ordinal);
 
                 // ── PlayerAssignments を背番号昇順で並べ、種目別ヒート番号を解決 ──
                 var assignments = prgrs["PlayerAssignments"] as JArray;
@@ -2152,8 +2202,9 @@ namespace DSPrt.印刷
                     ? FastReport.BorderLines.All
                     : FastReport.BorderLines.None;
 
-                SetTextObjectDirect(report, $"VR{rr}_C01{nameSuffix}", bibNo,  borderLines);
-                SetTextObjectDirect(report, $"VR{rr}_C02{nameSuffix}", lName,  borderLines);
+                SetTextObjectDirect(report, $"VR{rr}_C01{nameSuffix}", bibNo, borderLines);
+                // 選手名セルは長い場合にフォントサイズを自動縮小する（最小6pt）
+                SetTextObjectDirectEx(report, $"VR{rr}_C02{nameSuffix}", lName, borderLines, autoShrink: hasData);
                 for (int di = 0; di < 10; di++)
                 {
                     // hasData かつ danceCount 以内の列だけ罫線あり
@@ -2533,31 +2584,10 @@ namespace DSPrt.印刷
                 }
 
                 // ── 選手情報マップ（背番号→選手情報）────────────────────────────
-                // record: (LDispName, PDispName, LKana, PKana, LCtry, PCtry)
-                var playerInfoMap = new Dictionary<string, (string lName, string pName, string lKana, string pKana, string lCtry, string pCtry)>();
-                var members = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
-                    {
-                        var masterList = m["DM_MASTERs"] as JArray;
-                        if (masterList == null) continue;
-                        foreach (var master in masterList.OfType<JObject>())
-                        {
-                            string no    = master["DM_No"]?.ToString() ?? "";
-                            string lName = master["DM_LDispName"]?.ToString() ?? "";
-                            string pName = master["DM_PDispName"]?.ToString() ?? "";
-                            string lKana = master["DM_LKana"]?.ToString() ?? "";
-                            string pKana = master["DM_PKana"]?.ToString() ?? "";
-                            // LCtry/PCtry → なければ共通 Ctry にフォールバック
-                            string ctry  = master["DM_Ctry"]?.ToString() ?? "";
-                            string lCtry = master["DM_LCtry"]?.ToString() ?? ctry;
-                            string pCtry = master["DM_PCtry"]?.ToString() ?? ctry;
-                            if (!string.IsNullOrEmpty(no))
-                                playerInfoMap[no] = (lName, pName, lKana, pKana, lCtry, pCtry);
-                        }
-                    }
-                }
+                // DB_KbnSenM で指定されたマスタ番号のみを使用する。
+                // 同一背番号に複数のマスタが存在する場合、区分に対応するマスタを選択する。
+                int targetMasNo = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senM) ? senM : 1;
+                var playerInfoMap = BuildPlayerInfoMap(daJson, targetMasNo);
 
                 // ── 種目×ヒートの行リスト構築 ─────────────────────────────────
                 // (rowKind: "dance"|"heat", text_L, text_R)
@@ -2954,22 +2984,8 @@ namespace DSPrt.印刷
                 int totalHeats = allHeatIdToNo.Count > 0 ? allHeatIdToNo.Values.Max() : maxHeatCount;
 
                 // ── 選手マスタ解決マップ（DM_No → DM_MASTER_J オブジェクト）────
-                var masterMap = new Dictionary<string, JObject>();
-                var members   = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
-                    {
-                        var masterList2 = m["DM_MASTERs"] as JArray;
-                        if (masterList2 == null) continue;
-                        foreach (var master in masterList2.OfType<JObject>())
-                        {
-                            string no = master["DM_No"]?.ToString() ?? "";
-                            if (!string.IsNullOrEmpty(no) && !masterMap.ContainsKey(no))
-                                masterMap[no] = master;
-                        }
-                    }
-                }
+                int targetMasNoF = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senMF) ? senMF : 1;
+                var masterMap    = BuildMasterMap(daJson, targetMasNoF);
 
                 // ── PlayerAssignments を背番号昇順で並べ、種目別ヒート番号を解決 ──
                 var assignments  = prgrs["PlayerAssignments"] as JArray;
@@ -3309,22 +3325,8 @@ namespace DSPrt.印刷
                     .DefaultIfEmpty(0).Max() ?? 0;
 
                 // DA_Master 選手マップ（DM_No → master）
-                var memberMap = new Dictionary<string, JObject>();
-                var members   = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
-                    {
-                        var masterList = m["DM_MASTERs"] as JArray;
-                        if (masterList == null) continue;
-                        foreach (var master in masterList.OfType<JObject>())
-                        {
-                            string no = master["DM_No"]?.ToString() ?? "";
-                            if (!string.IsNullOrEmpty(no) && !memberMap.ContainsKey(no))
-                                memberMap[no] = master;
-                        }
-                    }
-                }
+                int targetMasNoSF = int.TryParse(kubun?["DB_KbnSenM"]?.ToString(), out int senMSF) ? senMSF : 1;
+                var memberMap     = BuildMasterMap(daJson, targetMasNoSF);
 
                 // 選手行リスト（bibNo / lName / lKana / lCtry / pName / pKana / pCtry）
                 var playerRows = new List<(string bibNo,
@@ -3794,27 +3796,12 @@ namespace DSPrt.印刷
                 }
 
                 // ── 選手名解決マップ（背番号 → L苗字, P苗字）───────────────────
-                var playerNameMap = new Dictionary<string, (string lLastName, string pLastName)>();
-                var members = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
-                    {
-                        var masterList = m["DM_MASTERs"] as JArray;
-                        if (masterList == null) continue;
-                        foreach (var master in masterList.OfType<JObject>())
-                        {
-                            string no    = master["DM_No"]?.ToString() ?? "";
-                            string lFull = master["DM_LDispName"]?.ToString() ?? master["DM_LName"]?.ToString() ?? "";
-                            string pFull = master["DM_PDispName"]?.ToString() ?? master["DM_PName"]?.ToString() ?? "";
-                            // 苗字のみ（スペース区切りの先頭要素）
-                            string lLast = lFull.Contains(' ') ? lFull.Split(' ')[0] : lFull;
-                            string pLast = pFull.Contains(' ') ? pFull.Split(' ')[0] : pFull;
-                            if (!string.IsNullOrEmpty(no))
-                                playerNameMap[no] = (lLast, pLast);
-                        }
-                    }
-                }
+                int targetMasNoA = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senMA) ? senMA : 1;
+                var infoMapA     = BuildPlayerInfoMap(daJson, targetMasNoA);
+                var playerNameMap = infoMapA.ToDictionary(
+                    kv => kv.Key,
+                    kv => (ExtractLastName(kv.Value.lName), ExtractLastName(kv.Value.pName)),
+                    StringComparer.Ordinal);
 
                 // ── DV_Result から採点データを解析 ─────────────────────────────
                 // job.Data の 総合結果[] と 種目結果[].選手結果[] を使用
@@ -4362,27 +4349,12 @@ namespace DSPrt.印刷
                 }
 
                 // ── 選手名解決マップ（背番号 → L苗字, P苗字）──────────────────────
-                var playerNameMap = new Dictionary<string, (string lLastName, string pLastName)>();
-                var members = daJson["DM_MEMBERs"] as JArray;
-                if (members != null)
-                {
-                    foreach (var m in members.OfType<JObject>())
-                    {
-                        var masterList = m["DM_MASTERs"] as JArray;
-                        if (masterList == null) continue;
-                        foreach (var master in masterList.OfType<JObject>())
-                        {
-                            string no    = master["DM_No"]?.ToString() ?? "";
-                            string lFull = master["DM_LDispName"]?.ToString() ?? master["DM_LName"]?.ToString() ?? "";
-                            string pFull = master["DM_PDispName"]?.ToString() ?? master["DM_PName"]?.ToString() ?? "";
-                            // 苗字のみ取得: 半角スペース・全角スペースで分割した最初のトークン
-                            string lLast = ExtractLastName(lFull);
-                            string pLast = ExtractLastName(pFull);
-                            if (!string.IsNullOrEmpty(no))
-                                playerNameMap[no] = (lLast, pLast);
-                        }
-                    }
-                }
+                int targetMasNoC = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senMC) ? senMC : 1;
+                var infoMapC     = BuildPlayerInfoMap(daJson, targetMasNoC);
+                var playerNameMap = infoMapC.ToDictionary(
+                    kv => kv.Key,
+                    kv => (ExtractLastName(kv.Value.lName), ExtractLastName(kv.Value.pName)),
+                    StringComparer.Ordinal);
 
                 // ── DV_Result からジャッジ詳細チェックデータを解析 ─────────────────
                 // 構造: 種目結果[].選手結果[].ジャッジ詳細結果[].素点
@@ -4455,6 +4427,25 @@ namespace DSPrt.印刷
                                     rawScores[ji++] = jd3["素点"]?.ToObject<decimal>() ?? 0m;
                                 }
                                 checkScoreMap[bibNo][di] = rawScores;
+
+                                // ── [診断ログ] bib=20・種目C(di=1) の素点を詳細記録 ──
+                                if (bibNo == "20" && di == 1)
+                                {
+                                    string judgeNames = string.Join(",", judgesPerDance[di]);
+                                    string rawStr     = string.Join(",", rawScores.Select(s => s.ToString("F0")));
+                                    _log.LogAdd($"[診断] checkScoreMap bib=20 種目C(di=1): judges=[{judgeNames}] rawScores=[{rawStr}]", _log.INFO);
+
+                                    // 各ジャッジの素点トークンを個別に記録（型・生値）
+                                    int ji2 = 0;
+                                    foreach (var jd3 in judgeDetails.OfType<JObject>())
+                                    {
+                                        var tok = jd3["素点"];
+                                        string sym = jd3["ジャッジ記号"]?.ToString() ?? $"[{ji2}]";
+                                        _log.LogAdd($"[診断]   {sym}: token={tok} type={tok?.Type} converted={rawScores[ji2]}", _log.INFO);
+                                        ji2++;
+                                    }
+                                }
+                                // ── [診断ログ] ここまで ──
                             }
                         }
                     }
@@ -4639,6 +4630,48 @@ namespace DSPrt.印刷
                         }
                     }
                 }
+
+                // ── [診断ログ] playerRows・checkScoreMap の状態を記録 ──
+                {
+                    // bib=20 の行インデックスと種目C(di=1)・Eジャッジ(judgeIdx=4)の素点を確認
+                    int bib20RowIdx = playerRows.FindIndex(r => r.bibNo == "20");
+                    _log.LogAdd($"[診断] playerRows 件数={playerRows.Count}, bib=20のインデックス={bib20RowIdx}", _log.INFO);
+
+                    if (bib20RowIdx >= 0)
+                    {
+                        var r20 = playerRows[bib20RowIdx];
+                        // checkCols の中で danceIdx=1(種目C) の各 judgeIdx を表示
+                        var cCols = checkCols
+                            .Select((c, idx) => (c.danceIdx, c.judgeIdx, checkColIdx: idx))
+                            .Where(c => c.danceIdx == 1)
+                            .ToList();
+                        var colInfo = string.Join(", ", cCols.Select(c =>
+                        {
+                            decimal sc = 0m;
+                            if (c.danceIdx < r20.checkScores.Length &&
+                                r20.checkScores[c.danceIdx] != null &&
+                                c.judgeIdx < r20.checkScores[c.danceIdx].Length)
+                                sc = r20.checkScores[c.danceIdx][c.judgeIdx];
+                            string jSym = c.judgeIdx < judgesPerDance[c.danceIdx].Count
+                                ? judgesPerDance[c.danceIdx][c.judgeIdx] : "?";
+                            int frxSlot = c.checkColIdx + 6;  // frxCol
+                            return $"J={jSym}(judgeIdx={c.judgeIdx},frxC{frxSlot:D2},score={sc})";
+                        }));
+                        _log.LogAdd($"[診断] bib=20 種目C列: {colInfo}", _log.INFO);
+
+                        // 種目C の rawScores 生配列
+                        string raw20C = r20.checkScores.Length > 1 && r20.checkScores[1] != null
+                            ? string.Join(",", r20.checkScores[1].Select(s => s.ToString("F0")))
+                            : "(none)";
+                        _log.LogAdd($"[診断] bib=20 checkScores[1](種目C) raw=[{raw20C}]", _log.INFO);
+                    }
+
+                    // judgesPerDance[1] の内容
+                    string jPD1 = judgesPerDance.Count > 1
+                        ? string.Join(",", judgesPerDance[1]) : "(none)";
+                    _log.LogAdd($"[診断] judgesPerDance[1](種目C)=[{jPD1}]", _log.INFO);
+                }
+                // ── [診断ログ] ここまで ──
 
                 // ── 各ページのデータ行・列ヘッダーをセット ──────────────────────────
                 // 列ページ分割: ジャッジ列 MaxJudgeColsPerPage 本を1ページの基準にする。
@@ -4964,26 +4997,8 @@ namespace DSPrt.印刷
                 int totalEntries = totalResults.Count;
 
                 // ── DA_Master から選手名マップ（背番号 → master）を構築 ──────
+                // masterMap は kubun 取得後に初期化（DB_KbnSenM 参照のため宣言のみ）
                 var masterMap = new Dictionary<string, JObject>(StringComparer.Ordinal);
-                if (_dataManager.DA_Master != null)
-                {
-                    var daJson  = JObject.Parse(_dataManager.DA_Master.ToJsonString());
-                    var members = daJson["DM_MEMBERs"] as JArray;
-                    if (members != null)
-                    {
-                        foreach (var m in members.OfType<JObject>())
-                        {
-                            var masterList = m["DM_MASTERs"] as JArray;
-                            if (masterList == null) continue;
-                            foreach (var master in masterList.OfType<JObject>())
-                            {
-                                string no = master["DM_No"]?.ToString() ?? "";
-                                if (!string.IsNullOrEmpty(no) && !masterMap.ContainsKey(no))
-                                    masterMap[no] = master;
-                            }
-                        }
-                    }
-                }
 
                 // ── DS_Status から共通ヘッダー情報を補完 ──────────────────────
                 string kbnCd           = "";
@@ -5039,6 +5054,10 @@ namespace DSPrt.印刷
                               ?? kubun?["DB_KbnDispName"]?.ToString()
                               ?? kubun?["DB_KbnName"]?.ToString()
                               ?? kbnName;
+
+                    // DB_KbnSenM で指定されたマスタ番号を使って masterMap を構築
+                    int targetMasNoAW = int.TryParse(kubun?["DB_KbnSenM"]?.ToString(), out int senMAW) ? senMAW : 1;
+                    masterMap = BuildMasterMap(daJson2, targetMasNoAW);
 
                     rndList    = (kubun?["DC_ROUNDs"] as JArray) ?? new JArray();
                     JObject? rndObj = rndList.OfType<JObject>().FirstOrDefault(r => r["DC_RndNo"]?.ToString() == rndNo);
