@@ -106,6 +106,10 @@ namespace DSPrt.印刷
         /// ジャッジ票専用印刷メソッド（対策1）。
         /// ジャッジ×種目の組み合わせごとに1ページの Report を個別に Prepare・印刷する。
         /// これにより report.Prepare() のコストを常に1ページ分に抑える。
+        ///
+        /// 処理順序: Load → ApplyJudgeSheetPage（データセット）→ Prepare → PrintDirect
+        /// ※ Prepare() は TextObject.Text を PreparedPages に焼き付けるため、
+        ///   必ずデータセット後に Prepare を呼ぶ必要がある。
         /// </summary>
         private void PrintJudgeSheetPerPage(PrintJob job, LayoutSetting layout)
         {
@@ -134,13 +138,19 @@ namespace DSPrt.印刷
             {
                 for (int dncIdx = 0; dncIdx < Math.Max(1, ctx.Dances.Count); dncIdx++)
                 {
-                    // 対策3: スクリプトなし frx のためコンパイルをスキップして Prepare する
-                    using var report = LoadFrxAndPrepareNoScript(frxPath);
+                    // 1. frx を Load（Prepare はまだ呼ばない）
+                    var report = new Report();
+                    report.Load(frxPath);
 
-                    // 1ページ分のデータをセット（suffix = "" : 常に1ページ目のオブジェクト名）
+                    // 2. データセット（対策3: suffix="" で常に1ページ目のオブジェクト名を使用）
                     ApplyJudgeSheetPage(report, ctx, jdgCd, jdgName, dncIdx, suffix: "");
 
-                    PrintDirect(report, layout, copies, job.JobId);
+                    // 3. Prepare（対策3: WebMode=true のままスクリプトコンパイルをスキップ）
+                    report.Prepare();
+
+                    // 4. 印刷して破棄
+                    using (report)
+                        PrintDirect(report, layout, copies, job.JobId);
                 }
             }
 
