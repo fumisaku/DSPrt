@@ -63,10 +63,6 @@ namespace DSPrt.印刷
         {
             await Task.Run(() =>
             {
-                // 1. FastReport で帳票を準備
-                using var report = LoadAndPrepare(job, layout);
-
-                // プリンター名オーバーライドがある場合はコピーを作成して上書き
                 var effectiveLayout = string.IsNullOrWhiteSpace(printerNameOverride) ? layout
                     : new LayoutSetting
                     {
@@ -79,6 +75,22 @@ namespace DSPrt.印刷
                         PaperSize   = layout.PaperSize
                     };
 
+                // ─── 対策1: ジャッジ票は1ページずつ個別 Prepare・印刷する ───────────
+                // 全ページを1つの Report に詰め込むと report.Prepare() が全ページ分を
+                // 一度にコンパイルするため、ページ数に比例して準備時間が急増する。
+                // 1ページ（= 1ジャッジ × 1種目）ずつ Prepare → PrintDirect することで
+                // 各 Prepare は常に1ページ分のみとなり大幅に高速化できる。
+                string dtUpper = layout.DataType.ToUpperInvariant()
+                    .Replace("+", "_").Replace(" ", "_");
+                if (dtUpper == "DA_MASTER_DS_STATUS_JUDGE_SHEET")
+                {
+                    PrintJudgeSheetPerPage(job, effectiveLayout);
+                    return;
+                }
+
+                // 1. FastReport で帳票を準備
+                using var report = LoadAndPrepare(job, layout);
+
                 int copies = job.Copies > 0 ? job.Copies : effectiveLayout.Copies;
                 int pageCount = report.PreparedPages.Count;
                 _log.LogAdd($"[ReportRenderer] 印刷開始: jobId={job.JobId}, printer={effectiveLayout.PrinterName}, copies={copies}, pages={pageCount}", _log.INFO);
@@ -88,6 +100,51 @@ namespace DSPrt.印刷
 
                 _log.LogAdd($"[ReportRenderer] 印刷完了: jobId={job.JobId}", _log.INFO);
             });
+        }
+
+        /// <summary>
+        /// ジャッジ票専用印刷メソッド（対策1）。
+        /// ジャッジ×種目の組み合わせごとに1ページの Report を個別に Prepare・印刷する。
+        /// これにより report.Prepare() のコストを常に1ページ分に抑える。
+        /// </summary>
+        private void PrintJudgeSheetPerPage(PrintJob job, LayoutSetting layout)
+        {
+            int copies = job.Copies > 0 ? job.Copies : layout.Copies;
+
+            // ジャッジ票のコンテキスト（ジャッジリスト・種目リスト・ヒート情報等）を構築
+            var ctx = BuildJudgeSheetContext(job.Data);
+            if (ctx == null)
+            {
+                _log.LogAdd($"[ReportRenderer] BindJudgeSheet: コンテキスト構築失敗 jobId={job.JobId}", _log.WARNING);
+                return;
+            }
+
+            int totalPages = ctx.TargetJudges.Count * Math.Max(1, ctx.Dances.Count);
+            _log.LogAdd(
+                $"[ReportRenderer] BindJudgeSheet 完了: kbn={ctx.KbnNo}/{ctx.KbnDspName}, rnd={ctx.RndName}, " +
+                $"dances={ctx.Dances.Count}, judges={ctx.TargetJudges.Count}, totalPages={totalPages}",
+                _log.INFO);
+            _log.LogAdd($"[ReportRenderer] 印刷開始: jobId={job.JobId}, printer={layout.PrinterName}, copies={copies}, pages={totalPages}", _log.INFO);
+
+            string frxPath = ResolveFrxPath(layout.FrxPath);
+            if (!File.Exists(frxPath))
+                throw new FileNotFoundException($".frx ファイルが見つかりません: {frxPath}");
+
+            foreach (var (jdgCd, jdgName) in ctx.TargetJudges)
+            {
+                for (int dncIdx = 0; dncIdx < Math.Max(1, ctx.Dances.Count); dncIdx++)
+                {
+                    // 対策3: スクリプトなし frx のためコンパイルをスキップして Prepare する
+                    using var report = LoadFrxAndPrepareNoScript(frxPath);
+
+                    // 1ページ分のデータをセット（suffix = "" : 常に1ページ目のオブジェクト名）
+                    ApplyJudgeSheetPage(report, ctx, jdgCd, jdgName, dncIdx, suffix: "");
+
+                    PrintDirect(report, layout, copies, job.JobId);
+                }
+            }
+
+            _log.LogAdd($"[ReportRenderer] 印刷完了: jobId={job.JobId}", _log.INFO);
         }
 
         /// <summary>
@@ -299,6 +356,23 @@ namespace DSPrt.印刷
         }
 
         /// <summary>
+        /// .frx パスを直接受け取り、スクリプトコンパイルなしで Prepare する（対策3）。
+        /// スクリプト・DataSource を持たない frx（ジャッジ票等）専用。
+        /// FastReport は WebMode=true のときスクリプトをコンパイルしない。
+        /// この frx はスクリプトを使用しないため WebMode をそのまま true に保って Prepare することで
+        /// C# コンパイラ起動を省略し高速化する。
+        /// </summary>
+        private static Report LoadFrxAndPrepareNoScript(string frxPath)
+        {
+            var report = new Report();
+            report.Load(frxPath);
+            // WebMode=true のまま Prepare() を呼ぶことでスクリプトコンパイルをスキップする（対策3）
+            // ジャッジ票 frx はスクリプト・DataSource・式を一切使わないため問題なし
+            report.Prepare();
+            return report;
+        }
+
+        /// <summary>
         /// FastReport の PreparedPages を PrintDocument の Graphics に直接描画して印刷する。
         /// PNG 変換を経由しないため高品質・高速。
         ///
@@ -429,19 +503,31 @@ namespace DSPrt.印刷
         {
             if (Math.Abs(scaleX - 1.0f) < 0.001f) return;
             int count = 0;
-            AdjustFontsInObject(page, scaleX, ref count);
+            // 対策2: 同一 FontFamily+Size+Style の Font を使い回すキャッシュ
+            // new Font() は GDI リソースを確保するためページ内で何度も呼ぶとコストが高い
+            var fontCache = new Dictionary<(string familyName, float size, System.Drawing.FontStyle style), System.Drawing.Font>();
+            AdjustFontsInObject(page, scaleX, ref count, fontCache);
             _log.LogAdd($"[PrintDirect] フォントサイズ補正: {count}個 ×{scaleX:F4}", _log.INFO);
         }
 
-        private static void AdjustFontsInObject(object obj, float scaleX, ref int count)
+        private static void AdjustFontsInObject(
+            object obj, float scaleX, ref int count,
+            Dictionary<(string, float, System.Drawing.FontStyle), System.Drawing.Font> fontCache)
         {
             if (obj is FastReport.TextObject txt)
             {
-                txt.Font = new System.Drawing.Font(
-                    txt.Font.FontFamily,
-                    txt.Font.Size * scaleX,
-                    txt.Font.Style,
-                    System.Drawing.GraphicsUnit.Point);
+                float newSize = txt.Font.Size * scaleX;
+                var key = (txt.Font.FontFamily.Name, newSize, txt.Font.Style);
+                if (!fontCache.TryGetValue(key, out var cachedFont))
+                {
+                    cachedFont = new System.Drawing.Font(
+                        txt.Font.FontFamily,
+                        newSize,
+                        txt.Font.Style,
+                        System.Drawing.GraphicsUnit.Point);
+                    fontCache[key] = cachedFont;
+                }
+                txt.Font = cachedFont;
                 count++;
             }
             if (obj is FastReport.IParent parent)
@@ -449,7 +535,7 @@ namespace DSPrt.印刷
                 var children = new FastReport.ObjectCollection();
                 parent.GetChildObjects(children);
                 foreach (FastReport.Base child in children)
-                    AdjustFontsInObject(child, scaleX, ref count);
+                    AdjustFontsInObject(child, scaleX, ref count, fontCache);
             }
         }
 
@@ -1252,406 +1338,415 @@ namespace DSPrt.印刷
             }
         }
 
+        // ── ジャッジ票コンテキスト ──────────────────────────────────────────────
+        // BuildJudgeSheetContext で構築したページ描画に必要な情報をまとめたレコード。
+        // PrintJudgeSheetPerPage（対策1）と BindJudgeSheet（後方互換）の両方から参照する。
+        private sealed record JudgeSheetContext(
+            string KbnNo,
+            string KbnDspName,
+            string RndNo,
+            string RndName,
+            string ScrMtd,
+            string KubunName,
+            string PrgNoDisplay,
+            string UpText,
+            int TotalHeats,
+            int TotalEntries,
+            string[] DsCodes,
+            string[] DcTypes,
+            List<JObject> Dances,
+            List<JObject> RoundObjs,
+            List<(int heatNo, List<(string no, string name)> players)> HeatRows,
+            List<(string jdgCd, string jdgName)> TargetJudges
+        );
+
         /// <summary>
-        /// ジャッジ票（横向き・ジャッジ票_横.frx 用）バインド。
-        /// ヒート表_横.frx と同じフォーマットだが、以下の違いがある:
-        ///   - SendTo: 【ジャッジ記号　ジャッジ名】 形式（ジャッジごとに異なる）
-        ///   - Name01_01〜Name06_20: すべてブランク（手書き記入欄）
-        ///   - 種目ごとにページを分割して印刷する
-        ///   - JudgeCd 指定時: そのジャッジの全種目ページを印刷
-        ///   - JudgeCd 未指定: 全ジャッジ分を一括印刷（ジャッジA全種目→ジャッジB全種目→...順）
-        ///
-        /// job.Data 形式:
-        ///   { "KbnNo": "1", "RndNo": "1", "DGrpNo": "1", "JudgeCd": "A" }
-        ///   JudgeCd を省略または空文字にすると全ジャッジ分を印刷する。
-        ///
-        /// frx の TextObject 名はヒート表_横.frx と同じ（共通）:
-        ///   Title, SendTo, PRGNO, KubunName, Round1〜Round7
-        ///   TotalHeat, TotalComp, UP, ScoreMethod, DS1〜DS5, DC1〜DC5
-        ///   HeatNo1〜HeatNo6, No01_01〜No06_20, Name01_01〜Name06_20
-        ///   Table4〜Table9
+        /// job.Data + DataManager キャッシュからジャッジ票描画に必要なコンテキストを構築する。
+        /// 失敗した場合は null を返す（エラーログ出力済み）。
         /// </summary>
-        private void BindJudgeSheet(Report report, JsonNode? jobData)
+        private JudgeSheetContext? BuildJudgeSheetContext(JsonNode? jobData)
         {
-            try
+            // ── job.Data から KbnNo / RndNo / DGrpNo / JudgeCd を取得 ────────
+            string kbnNo  = "";
+            string rndNo  = "";
+            string dGrpNo = "";
+            string judgeCdFilter = "";
+
+            if (jobData != null)
             {
-                // ── job.Data から KbnNo / RndNo / DGrpNo / JudgeCd を取得 ────────
-                string kbnNo  = "";
-                string rndNo  = "";
-                string dGrpNo = "";
-                string judgeCdFilter = "";
+                var jd = JObject.Parse(jobData.ToJsonString());
+                kbnNo         = jd["KbnNo"]?.ToString()   ?? "";
+                rndNo         = jd["RndNo"]?.ToString()   ?? "";
+                dGrpNo        = jd["DGrpNo"]?.ToString()  ?? "";
+                judgeCdFilter = jd["JudgeCd"]?.ToString() ?? "";
+            }
 
-                if (jobData != null)
+            if (_dataManager.DS_Status == null || _dataManager.DA_Master == null)
+            {
+                _log.LogAdd("[ReportRenderer] BindJudgeSheet: DS_Status/DA_Master が未受信", _log.WARNING);
+                return null;
+            }
+
+            var dsJson = JObject.Parse(_dataManager.DS_Status.ToJsonString());
+            var daJson = JObject.Parse(_dataManager.DA_Master.ToJsonString());
+
+            // ── フロア一覧（フロア数判定用）─────────────────────────────────
+            var floors     = dsJson["DS_FLOORs"] as JArray;
+            int floorCount = floors?.Count ?? 0;
+
+            // ── 対象 DS_PRGRS を KbnNo / RndNo で検索 ────────────────────────
+            JObject? prgrs    = null;
+            string   flrCd    = "";
+            string   prgNo    = "";
+            string   prgSubNo = "";
+
+            if (floors != null)
+            {
+                foreach (var floor in floors.OfType<JObject>())
                 {
-                    var jd = JObject.Parse(jobData.ToJsonString());
-                    kbnNo         = jd["KbnNo"]?.ToString()   ?? "";
-                    rndNo         = jd["RndNo"]?.ToString()   ?? "";
-                    dGrpNo        = jd["DGrpNo"]?.ToString()  ?? "";
-                    judgeCdFilter = jd["JudgeCd"]?.ToString() ?? "";
-                }
-
-                if (_dataManager.DS_Status == null || _dataManager.DA_Master == null)
-                {
-                    _log.LogAdd("[ReportRenderer] BindJudgeSheet: DS_Status/DA_Master が未受信", _log.WARNING);
-                    return;
-                }
-
-                var dsJson = JObject.Parse(_dataManager.DS_Status.ToJsonString());
-                var daJson = JObject.Parse(_dataManager.DA_Master.ToJsonString());
-
-                // ── フロア一覧（フロア数判定用）─────────────────────────────────
-                var floors     = dsJson["DS_FLOORs"] as JArray;
-                int floorCount = floors?.Count ?? 0;
-
-                // ── 対象 DS_PRGRS を KbnNo / RndNo で検索 ────────────────────────
-                JObject? prgrs    = null;
-                string   flrCd    = "";
-                string   prgNo    = "";
-                string   prgSubNo = "";
-
-                if (floors != null)
-                {
-                    foreach (var floor in floors.OfType<JObject>())
+                    var prgrsList = floor["DS_PRGRSs"] as JArray;
+                    if (prgrsList == null) continue;
+                    foreach (var p in prgrsList.OfType<JObject>())
                     {
-                        var prgrsList = floor["DS_PRGRSs"] as JArray;
-                        if (prgrsList == null) continue;
-                        foreach (var p in prgrsList.OfType<JObject>())
-                        {
-                            if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
-                            if (p["DS_RndNo"]?.ToString()  != rndNo)  continue;
-                            if (!string.IsNullOrEmpty(dGrpNo) &&
-                                p["DS_DGrpNo"]?.ToString() != dGrpNo)
-                                continue;
-                            prgrs    = p;
-                            flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
-                            prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
-                            prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
-                            break;
-                        }
-                        if (prgrs != null) break;
+                        if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
+                        if (p["DS_RndNo"]?.ToString()  != rndNo)  continue;
+                        if (!string.IsNullOrEmpty(dGrpNo) &&
+                            p["DS_DGrpNo"]?.ToString() != dGrpNo)
+                            continue;
+                        prgrs    = p;
+                        flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
+                        prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
+                        prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
+                        break;
                     }
+                    if (prgrs != null) break;
                 }
+            }
 
-                if (prgrs == null)
+            if (prgrs == null)
+            {
+                _log.LogAdd($"[ReportRenderer] BindJudgeSheet: 対象ラウンドが見つかりません KbnNo={kbnNo} RndNo={rndNo}", _log.WARNING);
+                return null;
+            }
+
+            // ── DA_Master から区分・ラウンド・種目情報を取得 ─────────────────
+            var kbnList = daJson["DB_KUBUNs"] as JArray;
+            JObject? kbnObj = kbnList?.OfType<JObject>()
+                .FirstOrDefault(k => k["DB_KbnNo"]?.ToString() == kbnNo);
+
+            string kbnCd      = kbnObj?["DB_KbnCd"]?.ToString() ?? "";
+            string kbnDspName = kbnObj?["DB_KbnDsipName"]?.ToString()
+                                ?? kbnObj?["DB_KbnDispName"]?.ToString()
+                                ?? kbnObj?["DB_KbnName"]?.ToString() ?? "";
+
+            var rndList  = kbnObj?["DC_ROUNDs"] as JArray;
+            JObject? rndObj = rndList?.OfType<JObject>()
+                .FirstOrDefault(r => r["DC_RndNo"]?.ToString() == rndNo);
+
+            string rndName  = rndObj?["DC_RndName_J"]?.ToString() ?? rndNo;
+            int    rndUpPln = rndObj?["DC_RndUpPln"]?.ToObject<int>() ?? 0;
+            string scrMtd   = rndObj?["DC_RndScrMtd"]?.ToString() ?? "";
+
+            // ── 種目グループ・種目一覧 ──────────────────────────────────────
+            var dgList  = rndObj?["DD_DGRPs"] as JArray;
+            int dgCount = dgList?.Count ?? 0;
+
+            JObject? dgrpObj = null;
+            if (dgList != null)
+            {
+                if (!string.IsNullOrEmpty(dGrpNo))
+                    dgrpObj = dgList.OfType<JObject>()
+                        .FirstOrDefault(g => g["DD_DGrpNo"]?.ToString() == dGrpNo);
+                dgrpObj ??= dgList.OfType<JObject>().FirstOrDefault();
+            }
+
+            string dgrpName = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
+            var dncList     = dgrpObj?["DE_DANCEs"] as JArray;
+            var dances      = dncList?.OfType<JObject>()
+                .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
+                ?? new List<JObject>();
+
+            string[] dsCodes = new string[5];
+            string[] dcTypes = new string[5];
+            for (int i = 0; i < 5; i++)
+            {
+                if (i < dances.Count)
                 {
-                    _log.LogAdd($"[ReportRenderer] BindJudgeSheet: 対象ラウンドが見つかりません KbnNo={kbnNo} RndNo={rndNo}", _log.WARNING);
-                    return;
+                    dsCodes[i] = dances[i]["DE_DncCd"]?.ToString() ?? "";
+                    dcTypes[i] = dances[i]["DE_DncSG"]?.ToString() ?? "";
                 }
+            }
 
-                // ── DA_Master から区分・ラウンド・種目情報を取得 ─────────────────
-                var kbnList = daJson["DB_KUBUNs"] as JArray;
-                JObject? kbnObj = kbnList?.OfType<JObject>()
-                    .FirstOrDefault(k => k["DB_KbnNo"]?.ToString() == kbnNo);
+            // ── KubunName / PRGNO 構築 ───────────────────────────────────────
+            string kbnNoDisplay = int.TryParse(kbnNo, out int kbnNoInt)
+                ? kbnNoInt.ToString("D2") : kbnNo;
+            var kubunParts = new System.Text.StringBuilder();
+            kubunParts.Append(kbnNoDisplay);
+            if (!string.IsNullOrEmpty(kbnCd))      kubunParts.Append(" ").Append(kbnCd);
+            if (!string.IsNullOrEmpty(kbnDspName)) kubunParts.Append(" ").Append(kbnDspName);
+            if (dgCount > 1 && !string.IsNullOrEmpty(dgrpName))
+                kubunParts.Append(" ").Append(dgrpName);
+            if (floorCount > 1 && !string.IsNullOrEmpty(flrCd))
+                kubunParts.Append(" ").Append(flrCd).Append("フロア");
+            string kubunName = kubunParts.ToString();
 
-                string kbnCd      = kbnObj?["DB_KbnCd"]?.ToString() ?? "";
-                string kbnDspName = kbnObj?["DB_KbnDsipName"]?.ToString()
-                                    ?? kbnObj?["DB_KbnDispName"]?.ToString()
-                                    ?? kbnObj?["DB_KbnName"]?.ToString() ?? "";
+            string prgNoFormatted = int.TryParse(prgNo, out int prgNoInt)
+                ? prgNoInt.ToString("D3") : prgNo;
+            string prgNoDisplay = string.IsNullOrEmpty(prgSubNo) || prgSubNo == "0" || prgSubNo == "1"
+                ? prgNoFormatted : $"{prgNoFormatted}-{prgSubNo}";
 
-                var rndList  = kbnObj?["DC_ROUNDs"] as JArray;
-                JObject? rndObj = rndList?.OfType<JObject>()
-                    .FirstOrDefault(r => r["DC_RndNo"]?.ToString() == rndNo);
-
-                string rndName  = rndObj?["DC_RndName_J"]?.ToString() ?? rndNo;
-                int    rndUpPln = rndObj?["DC_RndUpPln"]?.ToObject<int>() ?? 0;
-                string scrMtd   = rndObj?["DC_RndScrMtd"]?.ToString() ?? "";
-
-                // ── 種目グループ・種目一覧 ──────────────────────────────────────
-                var dgList  = rndObj?["DD_DGRPs"] as JArray;
-                int dgCount = dgList?.Count ?? 0;
-
-                JObject? dgrpObj = null;
-                if (dgList != null)
+            // ── HeatId → HeatNo マップ ─────────────────────────────────────────
+            var heatIdToNo   = new Dictionary<string, int>();
+            int maxHeatCount = 0;
+            var dncArr = prgrs["DS_PRGDANCEs"] as JArray;
+            if (dncArr != null)
+            {
+                foreach (var dnc in dncArr.OfType<JObject>())
                 {
-                    if (!string.IsNullOrEmpty(dGrpNo))
-                        dgrpObj = dgList.OfType<JObject>()
-                            .FirstOrDefault(g => g["DD_DGrpNo"]?.ToString() == dGrpNo);
-                    dgrpObj ??= dgList.OfType<JObject>().FirstOrDefault();
-                }
-
-                string dgrpName = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
-                var dncList     = dgrpObj?["DE_DANCEs"] as JArray;
-                var dances      = dncList?.OfType<JObject>()
-                    .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
-                    ?? new List<JObject>();
-
-                string[] dsCodes = new string[5];
-                string[] dcTypes = new string[5];
-                for (int i = 0; i < 5; i++)
-                {
-                    if (i < dances.Count)
+                    var heatArr = dnc["DS_PRGHEATs"] as JArray;
+                    if (heatArr == null) continue;
+                    int cnt = 0;
+                    foreach (var h in heatArr.OfType<JObject>())
                     {
-                        dsCodes[i] = dances[i]["DE_DncCd"]?.ToString() ?? "";
-                        dcTypes[i] = dances[i]["DE_DncSG"]?.ToString() ?? "";
+                        string? hid = h["DS_HeatId"]?.ToString();
+                        int     hno = h["DS_HeatNo"]?.ToObject<int>() ?? 0;
+                        if (!string.IsNullOrEmpty(hid) && !heatIdToNo.ContainsKey(hid))
+                            heatIdToNo[hid] = hno;
+                        cnt++;
                     }
+                    if (cnt > maxHeatCount) maxHeatCount = cnt;
                 }
+            }
+            int totalHeats = heatIdToNo.Count > 0 ? heatIdToNo.Values.Max() : maxHeatCount;
 
-                // ── KubunName / PRGNO 構築 ───────────────────────────────────────
-                string kbnNoDisplay = int.TryParse(kbnNo, out int kbnNoInt)
-                    ? kbnNoInt.ToString("D2") : kbnNo;
-                var kubunParts = new System.Text.StringBuilder();
-                kubunParts.Append(kbnNoDisplay);
-                if (!string.IsNullOrEmpty(kbnCd))      kubunParts.Append(" ").Append(kbnCd);
-                if (!string.IsNullOrEmpty(kbnDspName)) kubunParts.Append(" ").Append(kbnDspName);
-                if (dgCount > 1 && !string.IsNullOrEmpty(dgrpName))
-                    kubunParts.Append(" ").Append(dgrpName);
-                if (floorCount > 1 && !string.IsNullOrEmpty(flrCd))
-                    kubunParts.Append(" ").Append(flrCd).Append("フロア");
-                string kubunName = kubunParts.ToString();
+            // ── ヒート別選手リスト構築（背番号のみ、名前はブランク）──────────
+            var heatRows = new List<(int heatNo, List<(string no, string name)> players)>();
+            var assignments = prgrs["PlayerAssignments"] as JArray;
 
-                string prgNoFormatted = int.TryParse(prgNo, out int prgNoInt)
-                    ? prgNoInt.ToString("D3") : prgNo;
-                string prgNoDisplay = string.IsNullOrEmpty(prgSubNo) || prgSubNo == "0" || prgSubNo == "1"
-                    ? prgNoFormatted : $"{prgNoFormatted}-{prgSubNo}";
+            var heatDict = new SortedDictionary<int, List<(string no, string name)>>();
+            for (int i = 1; i <= totalHeats; i++)
+                heatDict[i] = new List<(string, string)>();
 
-                // ── HeatId → HeatNo マップ ─────────────────────────────────────────
-                var heatIdToNo   = new Dictionary<string, int>();
-                int maxHeatCount = 0;
-                var dncArr = prgrs["DS_PRGDANCEs"] as JArray;
-                if (dncArr != null)
+            if (assignments != null)
+            {
+                foreach (var pa in assignments.OfType<JObject>())
                 {
-                    foreach (var dnc in dncArr.OfType<JObject>())
-                    {
-                        var heatArr = dnc["DS_PRGHEATs"] as JArray;
-                        if (heatArr == null) continue;
-                        int cnt = 0;
-                        foreach (var h in heatArr.OfType<JObject>())
-                        {
-                            string? hid = h["DS_HeatId"]?.ToString();
-                            int     hno = h["DS_HeatNo"]?.ToObject<int>() ?? 0;
-                            if (!string.IsNullOrEmpty(hid) && !heatIdToNo.ContainsKey(hid))
-                                heatIdToNo[hid] = hno;
-                            cnt++;
-                        }
-                        if (cnt > maxHeatCount) maxHeatCount = cnt;
-                    }
+                    string playerNo = pa["PlayerNo"]?.ToString() ?? "";
+                    var   heatIds  = pa["AssignedHeatIds"] as JArray;
+                    if (heatIds == null || heatIds.Count == 0) continue;
+
+                    string firstHeatId = heatIds[0]?.ToString() ?? "";
+                    if (heatIdToNo.TryGetValue(firstHeatId, out int hn) && heatDict.ContainsKey(hn))
+                        heatDict[hn].Add((playerNo, ""));   // 選手名はブランク
                 }
-                int totalHeats = heatIdToNo.Count > 0 ? heatIdToNo.Values.Max() : maxHeatCount;
+            }
 
-                // ── 選手名解決マップ（背番号のみ使用、選手名はブランク）───────────
-                // 選手名はジャッジが手書きするため空白にする。背番号は必要。
+            // 背番号数値順ソート → 20名ずつ分割して heatRows に追加
+            // 選手が1人もいないヒートは行を追加しない（空行が印刷されるのを防ぐ）
+            foreach (var kv in heatDict)
+            {
+                var sorted = kv.Value.OrderBy(p =>
+                    int.TryParse(p.no, out int n) ? n : int.MaxValue).ToList();
 
-                // ── ヒート別選手リスト構築（背番号のみ、名前はブランク）──────────
-                var heatRows = new List<(int heatNo, List<(string no, string name)> players)>();
-                var assignments = prgrs["PlayerAssignments"] as JArray;
+                if (sorted.Count == 0) continue;
 
-                var heatDict = new SortedDictionary<int, List<(string no, string name)>>();
-                for (int i = 1; i <= totalHeats; i++)
-                    heatDict[i] = new List<(string, string)>();
-
-                if (assignments != null)
+                for (int offset = 0; offset < sorted.Count; offset += 20)
                 {
-                    foreach (var pa in assignments.OfType<JObject>())
-                    {
-                        string playerNo = pa["PlayerNo"]?.ToString() ?? "";
-                        var   heatIds  = pa["AssignedHeatIds"] as JArray;
-                        if (heatIds == null || heatIds.Count == 0) continue;
-
-                        string firstHeatId = heatIds[0]?.ToString() ?? "";
-                        if (heatIdToNo.TryGetValue(firstHeatId, out int hn) && heatDict.ContainsKey(hn))
-                            heatDict[hn].Add((playerNo, ""));   // 選手名はブランク
-                    }
+                    var chunk = sorted.Skip(offset).Take(20).ToList();
+                    heatRows.Add((kv.Key, chunk));
                 }
+            }
 
-                // 背番号数値順ソート → 20名ずつ分割して heatRows に追加
-                // 選手が1人もいないヒートは行を追加しない（空行が印刷されるのを防ぐ）
-                foreach (var kv in heatDict)
+            int totalEntries = assignments?.Count ?? 0;
+
+            bool isShuffle = prgrs["DS_PrgShuffle"]?.ToObject<bool>() ?? false;
+            string upText = $"UP数 {rndUpPln} 組" + (isShuffle ? " シャッフル" : "");
+
+            // ── ラウンドチェック表示用オブジェクト ────────────────────────────
+            var roundObjs = rndList?.OfType<JObject>().ToList() ?? new List<JObject>();
+
+            // ── DA_Master から対象ジャッジリストを取得 ──────────────────────────
+            var allJudges = new List<(string jdgCd, string jdgName)>();
+            var djJudges = daJson["DJ_JUDGEs"] as JArray;
+            if (djJudges != null)
+            {
+                foreach (var dj in djJudges.OfType<JObject>())
                 {
-                    var sorted = kv.Value.OrderBy(p =>
-                        int.TryParse(p.no, out int n) ? n : int.MaxValue).ToList();
-
-                    if (sorted.Count == 0) continue;
-
-                    for (int offset = 0; offset < sorted.Count; offset += 20)
-                    {
-                        var chunk = sorted.Skip(offset).Take(20).ToList();
-                        heatRows.Add((kv.Key, chunk));
-                    }
+                    string jcd  = dj["DJ_JdgCd"]?.ToString() ?? "";
+                    string jnm  = dj["DJ_JdgDispName"]?.ToString()
+                                  ?? dj["DJ_JdgName"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(jcd))
+                        allJudges.Add((jcd, jnm));
                 }
+            }
 
-                int totalEntries = assignments?.Count ?? 0;
+            List<(string jdgCd, string jdgName)> targetJudges;
+            if (!string.IsNullOrEmpty(judgeCdFilter))
+            {
+                targetJudges = allJudges
+                    .Where(j => string.Equals(j.jdgCd, judgeCdFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (targetJudges.Count == 0)
+                    targetJudges.Add((judgeCdFilter, ""));
+            }
+            else
+            {
+                targetJudges = allJudges;
+            }
 
-                bool isShuffle = prgrs["DS_PrgShuffle"]?.ToObject<bool>() ?? false;
-                string upText = $"UP数 {rndUpPln} 組" + (isShuffle ? " シャッフル" : "");
+            if (targetJudges.Count == 0)
+                targetJudges.Add(("", ""));
 
-                // ── ラウンドチェック表示用オブジェクト ────────────────────────────
-                var roundObjs = rndList?.OfType<JObject>().ToList() ?? new List<JObject>();
+            return new JudgeSheetContext(
+                KbnNo:         kbnNo,
+                KbnDspName:    kbnDspName,
+                RndNo:         rndNo,
+                RndName:       rndName,
+                ScrMtd:        scrMtd,
+                KubunName:     kubunName,
+                PrgNoDisplay:  prgNoDisplay,
+                UpText:        upText,
+                TotalHeats:    totalHeats,
+                TotalEntries:  totalEntries,
+                DsCodes:       dsCodes,
+                DcTypes:       dcTypes,
+                Dances:        dances,
+                RoundObjs:     roundObjs,
+                HeatRows:      heatRows,
+                TargetJudges:  targetJudges
+            );
+        }
 
-                // ── DA_Master から対象ジャッジリストを取得 ──────────────────────────
-                // DJ_JUDGEs から DJ_JdgCd（記号）と DJ_JdgDispName / DJ_JdgName（名前）を取得
-                var allJudges = new List<(string jdgCd, string jdgName)>();
-                var djJudges = daJson["DJ_JUDGEs"] as JArray;
-                if (djJudges != null)
+        /// <summary>
+        /// ジャッジ票の1ページ分のデータを Report の TextObject に適用する（対策1）。
+        /// suffix: 1ページ目は ""、複数ページ複製時は "_Pxx"。
+        /// 1ページずつ個別印刷する場合は suffix = "" を使用する。
+        /// </summary>
+        private void ApplyJudgeSheetPage(Report report, JudgeSheetContext ctx,
+            string jdgCd, string jdgName, int dncIdx, string suffix)
+        {
+            string sendTo = string.IsNullOrEmpty(jdgCd) && string.IsNullOrEmpty(jdgName)
+                ? "【　ジャッジ　】"
+                : $"【{jdgCd}　{jdgName}】";
+            SetTextObject(report, $"Title{suffix}",   "ジャッジ票");
+            SetTextObject(report, $"SendTo{suffix}",  sendTo);
+            SetTextObject(report, $"PRGNO{suffix}",     ctx.PrgNoDisplay);
+            SetTextObject(report, $"KubunName{suffix}", ctx.KubunName);
+
+            for (int i = 1; i <= 7; i++)
+            {
+                string objName = $"Round{i}{suffix}";
+                if (i - 1 < ctx.RoundObjs.Count)
                 {
-                    foreach (var dj in djJudges.OfType<JObject>())
-                    {
-                        string jcd  = dj["DJ_JdgCd"]?.ToString() ?? "";
-                        string jnm  = dj["DJ_JdgDispName"]?.ToString()
-                                      ?? dj["DJ_JdgName"]?.ToString() ?? "";
-                        if (!string.IsNullOrEmpty(jcd))
-                            allJudges.Add((jcd, jnm));
-                    }
-                }
-
-                // JudgeCd 指定時は該当ジャッジのみ。空の場合は全ジャッジ。
-                List<(string jdgCd, string jdgName)> targetJudges;
-                if (!string.IsNullOrEmpty(judgeCdFilter))
-                {
-                    targetJudges = allJudges
-                        .Where(j => string.Equals(j.jdgCd, judgeCdFilter, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                    // 指定ジャッジが DJ_JUDGEs に存在しない場合はフォールバック（記号のみ）
-                    if (targetJudges.Count == 0)
-                        targetJudges.Add((judgeCdFilter, ""));
+                    var r      = ctx.RoundObjs[i - 1];
+                    string rn  = r["DC_RndName_J"]?.ToString() ?? "";
+                    bool isCur = r["DC_RndNo"]?.ToString() == ctx.RndNo;
+                    SetTextObject(report, objName, rn);
+                    SetTextObjectFill(report, objName,
+                        isCur ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent);
                 }
                 else
                 {
-                    targetJudges = allJudges;
+                    SetTextObject(report, objName, "");
+                    SetTextObjectFill(report, objName, System.Drawing.Color.Transparent);
                 }
-
-                // ジャッジがまったくいない場合（テスト等）は空のジャッジ1人で1ページ印刷
-                if (targetJudges.Count == 0)
-                    targetJudges.Add(("", ""));
-
-                int danceCount = dances.Count;
-
-                // ── 1ページの内容を組み立てるローカル関数 ──────────────────────────
-                // frx ページに全 TextObject を設定する
-                void SetJudgeSheetPage(Report rpt, string jdgCd, string jdgName,
-                    string dncCd, int dncIdx, string suffix)
-                {
-                    // Title / SendTo
-                    string sendTo = string.IsNullOrEmpty(jdgCd) && string.IsNullOrEmpty(jdgName)
-                        ? "【　ジャッジ　】"
-                        : $"【{jdgCd}　{jdgName}】";
-                    SetTextObject(rpt, $"Title{suffix}",   "ジャッジ票");
-                    SetTextObject(rpt, $"SendTo{suffix}",  sendTo);
-
-                    // PRGNO / KubunName
-                    SetTextObject(rpt, $"PRGNO{suffix}",     prgNoDisplay);
-                    SetTextObject(rpt, $"KubunName{suffix}", kubunName);
-
-                    // Round1〜Round7（現在ラウンドを DarkOrange で強調）
-                    for (int i = 1; i <= 7; i++)
-                    {
-                        string objName = $"Round{i}{suffix}";
-                        if (i - 1 < roundObjs.Count)
-                        {
-                            var r     = roundObjs[i - 1];
-                            string rn = r["DC_RndName_J"]?.ToString() ?? "";
-                            bool isCur = r["DC_RndNo"]?.ToString() == rndNo;
-                            SetTextObject(rpt, objName, rn);
-                            SetTextObjectFill(rpt, objName,
-                                isCur ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent);
-                        }
-                        else
-                        {
-                            SetTextObject(rpt, objName, "");
-                            SetTextObjectFill(rpt, objName, System.Drawing.Color.Transparent);
-                        }
-                    }
-
-                    // TotalHeat / TotalComp / UP / ScoreMethod
-                    SetTextObject(rpt, $"TotalHeat{suffix}",   $"{totalHeats} Heat");
-                    SetTextObject(rpt, $"TotalComp{suffix}",   $"出場　{totalEntries}組");
-                    SetTextObject(rpt, $"UP{suffix}",          upText);
-                    SetTextObject(rpt, $"ScoreMethod{suffix}", scrMtd);
-
-                    // DS1〜DS5 / DC1〜DC5
-                    // 現在種目（dncIdx）を強調色、他は通常色
-                    for (int i = 1; i <= 5; i++)
-                    {
-                        bool hasDance = i <= danceCount;
-                        SetTextObject(rpt, $"DS{i}{suffix}", hasDance ? dsCodes[i - 1] : "");
-                        SetTextObject(rpt, $"DC{i}{suffix}", hasDance ? dcTypes[i - 1] : "");
-                        // dncIdx（0-based）と一致する種目のみ DarkOrange（現在種目の強調）
-                        bool isCurDnc = hasDance && (i - 1 == dncIdx);
-                        var fillColor = hasDance
-                            ? (isCurDnc ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent)
-                            : System.Drawing.Color.Transparent;
-                        SetTextObjectFill(rpt, $"DS{i}{suffix}", fillColor);
-                        SetTextObjectFill(rpt, $"DC{i}{suffix}", fillColor);
-                    }
-
-                    // ヒート行（最大6行）
-                    string[] tableNames = { "Table4", "Table5", "Table6", "Table7", "Table8", "Table9" };
-                    for (int rowIdx = 0; rowIdx < 6; rowIdx++)
-                    {
-                        string tableName = $"{tableNames[rowIdx]}{suffix}";
-                        string rowNum    = $"{rowIdx + 1:D2}";
-
-                        if (rowIdx < heatRows.Count)
-                        {
-                            var (heatNo, players) = heatRows[rowIdx];
-                            SetTableVisible(rpt, tableName, true);
-                            SetTextObject(rpt, $"HeatNo{rowIdx + 1}{suffix}", heatNo.ToString());
-
-                            for (int col = 1; col <= 20; col++)
-                            {
-                                string colNum   = $"{col:D2}";
-                                string noName   = $"No{rowNum}_{colNum}{suffix}";
-                                string nameName = $"Name{rowNum}_{colNum}{suffix}";
-
-                                if (col <= players.Count)
-                                {
-                                    SetTextObject(rpt, noName,   players[col - 1].no);
-                                    SetTextObject(rpt, nameName, "");  // 選手名はブランク
-                                }
-                                else
-                                {
-                                    SetTextObject(rpt, noName,   "");
-                                    SetTextObject(rpt, nameName, "");
-                                }
-                            }
-                        }
-                        else
-                        {
-                            SetTableVisible(rpt, tableName, false);
-                        }
-                    }
-                }
-
-                // ── ページ数計算 ────────────────────────────────────────────────
-                // ジャッジ数 × 種目数 がトータルページ数
-                // 順序: ジャッジA-種目1, ジャッジA-種目2, ..., ジャッジB-種目1, ...
-                int totalPages = targetJudges.Count * danceCount;
-                if (totalPages == 0) totalPages = 1;
-
-                // ── ページ複製（複数ページの場合）──────────────────────────────
-                if (totalPages > 1)
-                {
-                    string origXml = report.SaveToString();
-                    string? newXml = DuplicatePageInReportXml(origXml, totalPages);
-                    if (newXml != null)
-                        report.LoadFromString(newXml);
-                }
-
-                // ── 各ページにデータをセット ───────────────────────────────────
-                // ページ順: ジャッジ0-種目0, ジャッジ0-種目1, ..., ジャッジ1-種目0, ...
-                int pageNum = 0;
-                foreach (var (jdgCd, jdgName) in targetJudges)
-                {
-                    for (int dncIdx = 0; dncIdx < Math.Max(1, danceCount); dncIdx++)
-                    {
-                        string dncCd = dncIdx < dances.Count
-                            ? dances[dncIdx]["DE_DncCd"]?.ToString() ?? ""
-                            : "";
-                        // suffix: ページ1は ""、ページ2以降は "_Pxx"
-                        string suffix = pageNum == 0 ? "" : $"_P{pageNum + 1:D2}";
-                        SetJudgeSheetPage(report, jdgCd, jdgName, dncCd, dncIdx, suffix);
-                        pageNum++;
-                    }
-                }
-
-                _log.LogAdd(
-                    $"[ReportRenderer] BindJudgeSheet 完了: kbn={kbnNo}/{kbnDspName}, rnd={rndName}, " +
-                    $"dances={danceCount}, judges={targetJudges.Count}, totalPages={totalPages}",
-                    _log.INFO);
             }
-            catch (Exception ex)
+
+            SetTextObject(report, $"TotalHeat{suffix}",   $"{ctx.TotalHeats} Heat");
+            SetTextObject(report, $"TotalComp{suffix}",   $"出場　{ctx.TotalEntries}組");
+            SetTextObject(report, $"UP{suffix}",          ctx.UpText);
+            SetTextObject(report, $"ScoreMethod{suffix}", ctx.ScrMtd);
+
+            int danceCount = ctx.Dances.Count;
+            for (int i = 1; i <= 5; i++)
             {
-                _log.LogAdd($"[ReportRenderer] BindJudgeSheet エラー: {ex.Message}", _log.ERR);
+                bool hasDance = i <= danceCount;
+                SetTextObject(report, $"DS{i}{suffix}", hasDance ? ctx.DsCodes[i - 1] : "");
+                SetTextObject(report, $"DC{i}{suffix}", hasDance ? ctx.DcTypes[i - 1] : "");
+                bool isCurDnc = hasDance && (i - 1 == dncIdx);
+                var fillColor = hasDance
+                    ? (isCurDnc ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent)
+                    : System.Drawing.Color.Transparent;
+                SetTextObjectFill(report, $"DS{i}{suffix}", fillColor);
+                SetTextObjectFill(report, $"DC{i}{suffix}", fillColor);
             }
+
+            string[] tableNames = { "Table4", "Table5", "Table6", "Table7", "Table8", "Table9" };
+            for (int rowIdx = 0; rowIdx < 6; rowIdx++)
+            {
+                string tableName = $"{tableNames[rowIdx]}{suffix}";
+                string rowNum    = $"{rowIdx + 1:D2}";
+
+                if (rowIdx < ctx.HeatRows.Count)
+                {
+                    var (heatNo, players) = ctx.HeatRows[rowIdx];
+                    SetTableVisible(report, tableName, true);
+                    SetTextObject(report, $"HeatNo{rowIdx + 1}{suffix}", heatNo.ToString());
+
+                    for (int col = 1; col <= 20; col++)
+                    {
+                        string colNum   = $"{col:D2}";
+                        string noName   = $"No{rowNum}_{colNum}{suffix}";
+                        string nameName = $"Name{rowNum}_{colNum}{suffix}";
+
+                        if (col <= players.Count)
+                        {
+                            SetTextObject(report, noName,   players[col - 1].no);
+                            SetTextObject(report, nameName, "");  // 選手名はブランク
+                        }
+                        else
+                        {
+                            SetTextObject(report, noName,   "");
+                            SetTextObject(report, nameName, "");
+                        }
+                    }
+                }
+                else
+                {
+                    SetTableVisible(report, tableName, false);
+                }
+            }
+        }
+
+        /// <summary>
+        /// ジャッジ票（横向き・ジャッジ票_横.frx 用）バインド。
+        /// ※ PrintJudgeSheetPerPage（対策1）経由では呼ばれない。
+        ///   LoadAndPrepare の switch 文から呼ばれる後方互換パス（ExportHtmlAsync 等）で使用。
+        /// </summary>
+        private void BindJudgeSheet(Report report, JsonNode? jobData)
+        {
+            var ctx = BuildJudgeSheetContext(jobData);
+            if (ctx == null) return;
+
+            int danceCount = ctx.Dances.Count;
+            int totalPages = ctx.TargetJudges.Count * danceCount;
+            if (totalPages == 0) totalPages = 1;
+
+            // ── ページ複製（複数ページの場合）──────────────────────────────
+            if (totalPages > 1)
+            {
+                string origXml = report.SaveToString();
+                string? newXml = DuplicatePageInReportXml(origXml, totalPages);
+                if (newXml != null)
+                    report.LoadFromString(newXml);
+            }
+
+            // ── 各ページにデータをセット ───────────────────────────────────
+            int pageNum = 0;
+            foreach (var (jdgCd, jdgName) in ctx.TargetJudges)
+            {
+                for (int dncIdx = 0; dncIdx < Math.Max(1, danceCount); dncIdx++)
+                {
+                    string suffix = pageNum == 0 ? "" : $"_P{pageNum + 1:D2}";
+                    ApplyJudgeSheetPage(report, ctx, jdgCd, jdgName, dncIdx, suffix);
+                    pageNum++;
+                }
+            }
+
+            _log.LogAdd(
+                $"[ReportRenderer] BindJudgeSheet 完了: kbn={ctx.KbnNo}/{ctx.KbnDspName}, rnd={ctx.RndName}, " +
+                $"dances={danceCount}, judges={ctx.TargetJudges.Count}, totalPages={totalPages}",
+                _log.INFO);
         }
 
 
