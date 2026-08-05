@@ -1,0 +1,13 @@
+﻿      <TextObject Name="SK_H_J01" Left="87.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J02" Left="107.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J03" Left="127.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J04" Left="147.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J05" Left="167.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J06" Left="187.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J07" Left="207.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J08" Left="227.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J09" Left="247.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J10" Left="267.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J11" Left="287.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J12" Left="307.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>
+      <TextObject Name="SK_H_J13" Left="327.8" Top="18.9" Width="20" Height="18.9" Border.Lines="All" Text="" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 8.25pt"/>

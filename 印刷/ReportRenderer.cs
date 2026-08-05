@@ -330,6 +330,17 @@ namespace DSPrt.印刷
                             maxJudgeColsPerPage: 65, maxFrxCheckCols: 69);
                     break;
 
+                case "DA_MASTER_DS_STATUS_DV_RESULT_SKATING_SCORE":
+                    // 得点一覧表（順位法・スケーティングシステム）
+                    {
+                        var dummySk = new System.Data.DataTable("SkatingScoreDummy");
+                        dummySk.Columns.Add("Idx", typeof(int));
+                        dummySk.Rows.Add(0);
+                        report.RegisterData(dummySk, "SkatingScoreDummy");
+                    }
+                    BindSkatingScoreList(report, job.Data);
+                    break;
+
                 case "DS_STATUS_DV_RESULT":
                     BindDsStatus(report);
                     BindDvResult(report, job.Data);
@@ -5602,6 +5613,862 @@ namespace DSPrt.印刷
         {
             if (Path.IsPathRooted(frxPath)) return frxPath;
             return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, frxPath));
+        }
+
+        // ═════════════════════════════════════════════════════════════════
+        // 得点一覧表（順位法・スケーティングシステム）
+        // ═════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// 得点一覧表（順位法・スケーティングシステム）バインド。
+        /// frx は 得点一覧表_順位法_横.frx（3ページ構成 A4横）。
+        ///
+        /// ■ ページ構成
+        ///   Page1: 総合結果表（選手×種目の順位・合計点・総合順位・決定規定）
+        ///   Page2: 規定10検討（規定11検討 = 同点選手の上位計算詳細）
+        ///   Page3: 種目別順位表（1種目目）。種目数が2以上の場合は DuplicatePageInReportXml で増やす。
+        ///
+        /// ■ job.Data フォーマット（PR_PRINT.data = DV_Result JSON）
+        ///   {
+        ///     "区分番号": "3",    "区分名": "...",
+        ///     "ラウンド番号": "400", "ラウンド名": "決勝",
+        ///     "採点方式ID": "順位法",
+        ///     "総合結果": [ { "総合順位番号":1, "背番号":"...", "総合得点":14, "総合順位表記":"1位",
+        ///                     "総合順位決定規定":"規定9", "総合順位決定値":"14" }, ... ],
+        ///     "総合規定11検討": [ { "背番号":"...", "規定11判定順位":2,
+        ///                          "列データ": [ { "上位合計順位まで":"1&2", "合計数":3 }, ... ] }, ... ],
+        ///     "種目結果": [
+        ///       { "種目順":1, "種目記号":"W", "種目名":"Waltz", "有効ジャッジ数":9,
+        ///         "選手結果": [
+        ///           { "背番号":"...", "種目順位番号":1, "種目順位表記":"1位",
+        ///             "種目順位決定規定":"規定5", "種目順位決定値":"5(過半数)",
+        ///             "順位法詳細": { "規定5過半数":1, "規定5適用":true, "規定6多数決":null,
+        ///                            "規定7a上位加算":null, "規定7b下位加算":null, "規定8繰り上げ":null },
+        ///             "ジャッジ詳細結果": [ { "ジャッジ記号":"A", "素点":1 }, ... ]
+        ///           }, ...
+        ///         ]
+        ///       }, ...
+        ///     ]
+        ///   }
+        ///
+        /// ■ frx TextObject 命名規則
+        ///   [ページ共通ヘッダー] 各ページで suffix _P1/_P2/_P3 等を付与
+        ///     PRGNO_P1〜, KubunName_P1〜, Round1_P1〜Round7_P1〜,
+        ///     TotalHeat_P1〜, TotalComp_P1〜, UP_P1〜, ScoreMethod_P1〜,
+        ///     DS1_P1〜DS5_P1〜, DC1_P1〜DC5_P1〜
+        ///
+        ///   [Page1: 総合結果]
+        ///     SR_Title          タイトル（「総合結果」）
+        ///     SR_H_C01〜C05     種目記号ヘッダー（各種目）
+        ///     SR_{nn}_C00       選手背番号 (nn=01〜24)
+        ///     SR_{nn}_C01〜C05  種目別順位
+        ///     SR_{nn}_C06       合計点
+        ///     SR_{nn}_C07       総合順位
+        ///     SR_{nn}_C08       決定規定
+        ///     SR_{nn}_C09       決定値
+        ///
+        ///   [Page2: 規定10検討]
+        ///     R10_Title         タイトル（「規定10検討」）
+        ///     R10_{nn}_C00      選手背番号
+        ///     R10_{nn}_C01      1位の数
+        ///     R10_{nn}_C02      1&2の数
+        ///     R10_{nn}_C03      1-3の数
+        ///     R10_{nn}_C04      1-4の数
+        ///     R10_{nn}_C05      1-5の数
+        ///     R10_{nn}_C06      1-6の数
+        ///     R10_{nn}_C07      判定順位
+        ///
+        ///   [Page3〜: 種目別順位（種目ごとに1ページ）]
+        ///     SK_DncName         種目名（ページ先頭）
+        ///     SK_JudgeInfo       有効ジャッジ数と過半数の表示
+        ///     SK_H_J01〜J13      ジャッジ記号ヘッダー
+        ///     SK_{nn}_C00        選手背番号
+        ///     SK_{nn}_J01〜J13   各ジャッジの付けた順位（素点）
+        ///     SK_{nn}_R5         規定5（過半数）の値
+        ///     SK_{nn}_R6         規定6（多数決）の値
+        ///     SK_{nn}_R7a        規定7(a)（上位加算）の値
+        ///     SK_{nn}_R7b        規定7(b)（下位加算）の値
+        ///     SK_{nn}_R8         規定8（繰り上げ）の値
+        ///     SK_{nn}_Jdg        判定方式テキスト
+        ///     SK_{nn}_Rank       判定順位
+        ///
+        ///   （種目2以降はページ複製後 _P{n:D2} サフィックスが付く）
+        ///
+        /// ■ 1ページ最大24組
+        /// </summary>
+        private void BindSkatingScoreList(Report report, JsonNode? jobData)
+        {
+            const int PairsPerPage = 20;
+            const int MaxR11Rows   = 6;
+            const int MaxJudges    = 13;
+            const int MaxDances    = 10;
+
+            try
+            {
+                // ── job.Data（DV_Result JSON）を解析 ───────────────────
+                JObject? jd = null;
+                if (jobData != null)
+                    jd = JObject.Parse(jobData.ToJsonString());
+
+                string kbnNo      = jd?["区分番号"]?.ToString()    ?? jd?["KbnNo"]?.ToString()  ?? "";
+                string rndNo      = jd?["ラウンド番号"]?.ToString() ?? jd?["RndNo"]?.ToString()  ?? "";
+                string dGrpNo     = jd?["DGrpNo"]?.ToString()     ?? "";
+                string kbnName    = jd?["区分名"]?.ToString()      ?? "";
+                string rndName    = jd?["ラウンド名"]?.ToString()   ?? "";
+                string scrMtdName = jd?["採点方式名"]?.ToString()   ?? "";
+
+                _log.LogAdd($"[ReportRenderer] BindSkatingScoreList 開始: KbnNo={kbnNo}, RndNo={rndNo}", _log.INFO);
+
+                // ── DA_Master/DS_Status からヘッダー情報を補完 ──────────
+                string kbnCd          = "";
+                string prgNoDisplay   = "";
+                string upText         = "";
+                string scrMtd         = scrMtdName;
+                var    rndListArr     = new JArray();
+                int    danceCount     = 0;
+                var dsCodes  = new string[MaxDances];
+                var dcTypes  = new string[MaxDances];
+                string kubunNameDisp  = "";
+                int    totalHeats     = 0;
+                string kbnDspName     = kbnName;
+
+                if (_dataManager.DS_Status != null && _dataManager.DA_Master != null)
+                {
+                    var dsJson = JObject.Parse(_dataManager.DS_Status.ToJsonString());
+                    var daJson = JObject.Parse(_dataManager.DA_Master.ToJsonString());
+
+                    var floors     = dsJson["DS_FLOORs"] as JArray;
+                    int floorCount = floors?.Count ?? 0;
+
+                    JObject? prgrs    = null;
+                    string   flrCd    = "";
+                    string   prgNo    = "";
+                    string   prgSubNo = "";
+
+                    if (floors != null)
+                    {
+                        foreach (var floor in floors.OfType<JObject>())
+                        {
+                            var prgrsList = floor["DS_PRGRSs"] as JArray;
+                            if (prgrsList == null) continue;
+                            foreach (var p in prgrsList.OfType<JObject>())
+                            {
+                                if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
+                                if (p["DS_RndNo"]?.ToString()  != rndNo)  continue;
+                                if (!string.IsNullOrEmpty(dGrpNo) && p["DS_DGrpNo"]?.ToString() != dGrpNo) continue;
+                                prgrs    = p;
+                                flrCd    = floor["DS_FlrCd"]?.ToString() ?? "";
+                                prgNo    = p["DS_PrgNo"]?.ToString()    ?? "";
+                                prgSubNo = p["DS_PrgSubNo"]?.ToString() ?? "";
+                                break;
+                            }
+                            if (prgrs != null) break;
+                        }
+                    }
+
+                    var kubuns  = daJson["DB_KUBUNs"] as JArray;
+                    JObject? kubun = kubuns?.OfType<JObject>().FirstOrDefault(k => k["DB_KbnNo"]?.ToString() == kbnNo);
+                    kbnCd      = kubun?["DB_KbnCd"]?.ToString() ?? "";
+                    kbnDspName = kubun?["DB_KbnDsipName"]?.ToString()
+                              ?? kubun?["DB_KbnDispName"]?.ToString()
+                              ?? kubun?["DB_KbnName"]?.ToString() ?? kbnName;
+
+                    rndListArr = (kubun?["DC_ROUNDs"] as JArray) ?? new JArray();
+                    JObject? rndObj = rndListArr.OfType<JObject>().FirstOrDefault(r => r["DC_RndNo"]?.ToString() == rndNo);
+                    if (string.IsNullOrEmpty(scrMtd)) scrMtd = rndObj?["DC_RndScrMtd"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(rndName)) rndName = rndObj?["DC_RndName_J"]?.ToString() ?? rndNo;
+
+                    int rndUpPln   = rndObj?["DC_RndUpPln"]?.ToObject<int>() ?? 0;
+                    bool isShuffle = prgrs?["DS_PrgShuffle"]?.ToObject<bool>() ?? false;
+                    upText = $"UP数 {rndUpPln} 組" + (isShuffle ? " シャッフル" : "");
+
+                    var dgrps = rndObj?["DD_DGRPs"] as JArray;
+                    JObject? dgrp = dgrps?.OfType<JObject>()
+                        .FirstOrDefault(g => string.IsNullOrEmpty(dGrpNo) || g["DD_DGrpNo"]?.ToString() == dGrpNo);
+                    var dances  = (dgrp?["DE_DANCEs"] as JArray)?.OfType<JObject>()
+                        .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
+                        ?? new List<JObject>();
+                    danceCount = Math.Min(dances.Count, MaxDances);
+                    for (int i = 0; i < danceCount; i++)
+                    {
+                        dsCodes[i] = dances[i]["DE_DncCd"]?.ToString() ?? "";
+                        dcTypes[i] = dances[i]["DE_DncSG"]?.ToString() ?? "";
+                    }
+
+                    string dgName = ((dgrps?.Count ?? 0) > 1 ? dgrp?["DD_DGrpName"]?.ToString() : "") ?? "";
+                    int kbnNoInt2 = int.TryParse(kbnNo, out int kni2) ? kni2 : 0;
+                    kubunNameDisp = $"{kbnNoInt2:D2}";
+                    if (!string.IsNullOrEmpty(kbnCd))      kubunNameDisp += $" {kbnCd}";
+                    if (!string.IsNullOrEmpty(kbnDspName)) kubunNameDisp += $" {kbnDspName}";
+                    if (!string.IsNullOrEmpty(dgName))     kubunNameDisp += $" {dgName}";
+                    if (floorCount > 1 && !string.IsNullOrEmpty(flrCd))
+                        kubunNameDisp += $" {flrCd}フロア";
+
+                    prgNoDisplay = int.TryParse(prgNo, out int pn) ? pn.ToString("D3") : prgNo;
+                    if (!string.IsNullOrEmpty(prgSubNo) && prgSubNo != "0" && prgSubNo != "1")
+                        prgNoDisplay += $"-{prgSubNo}";
+
+                    totalHeats = (prgrs?["DS_PRGDANCEs"] as JArray)?.OfType<JObject>()
+                        .SelectMany(d => (d["DS_PRGHEATs"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                        .Select(h => h["DS_HeatNo"]?.ToObject<int>() ?? 0)
+                        .DefaultIfEmpty(0).Max() ?? 0;
+                }
+                else
+                {
+                    int kbnNoInt3 = int.TryParse(kbnNo, out int kni3) ? kni3 : 0;
+                    kubunNameDisp = string.IsNullOrEmpty(kbnDspName) ? $"{kbnNoInt3:D2}" : $"{kbnNoInt3:D2} {kbnDspName}";
+                    scrMtd = scrMtdName;
+                }
+
+                // ── DV_Result の総合結果・種目結果を解析 ─────────────────
+                var soGoKekka     = (jd?["総合結果"] as JArray)?.OfType<JObject>()
+                    .OrderBy(r => r["総合順位番号"]?.ToObject<int>() ?? int.MaxValue)
+                    .ToList() ?? new List<JObject>();
+                var soGoR10       = (jd?["総合規定10検討"] as JArray)?.OfType<JObject>().ToList()
+                    ?? new List<JObject>();
+                var soGoR11       = (jd?["総合規定11検討"] as JArray)?.OfType<JObject>().ToList()
+                    ?? new List<JObject>();
+                var shomokuKekkaArr = (jd?["種目結果"] as JArray)?.OfType<JObject>()
+                    .OrderBy(r => r["種目順"]?.ToObject<int>() ?? int.MaxValue)
+                    .ToList() ?? new List<JObject>();
+
+                // 種目記号をDV_Resultから補完（DA_Masterが無い場合のフォールバック）
+                if (danceCount == 0)
+                {
+                    danceCount = Math.Min(shomokuKekkaArr.Count, MaxDances);
+                    for (int i = 0; i < danceCount; i++)
+                        dsCodes[i] = shomokuKekkaArr[i]["種目記号"]?.ToString() ?? "";
+                }
+
+                int totalEntries = soGoKekka.Count;
+
+                // ── 選手リスト（背番号順）を DV_Result から取得 ─────────
+                // 総合結果で出現する背番号を背番号数値昇順でソート
+                var playerNos = soGoKekka.Select(r => r["背番号"]?.ToString() ?? "").Where(b => !string.IsNullOrEmpty(b)).ToList();
+                playerNos.Sort((a, b) =>
+                {
+                    bool aOk = int.TryParse(a, out int ai);
+                    bool bOk = int.TryParse(b, out int bi);
+                    if (aOk && bOk) return ai.CompareTo(bi);
+                    if (aOk) return -1;
+                    if (bOk) return 1;
+                    return string.Compare(a, b, StringComparison.Ordinal);
+                });
+
+                // 背番号 → 総合結果行
+                var soGoMap = soGoKekka.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+
+                // 種目記号 → 種目結果行
+                var dncMap = shomokuKekkaArr.ToDictionary(
+                    r => r["種目記号"]?.ToString() ?? "",
+                    r => r, StringComparer.Ordinal);
+
+                // 規定10検討: 背番号 → 検討行
+                var r10Map = soGoR10.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+                // 規定11検討: 背番号 → 検討行（対象者のみ）
+                var r11Map = soGoR11.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+
+                // ── 種目ページ数（種目数）の確定 ─────────────────────────
+                int dancePagesCount = Math.Max(1, danceCount);
+
+                // 総ページ数 = 1(総合+規定11統合) + danceCount(種目別)
+                int totalPages = 1 + dancePagesCount;
+
+                // ── ページ複製（種目が2以上の場合は種目ページを増やす）────
+                // frx の Page2 が種目別テンプレート。dancePagesCount-1 ページ追加する。
+                if (dancePagesCount > 1)
+                {
+                    string origXml = report.SaveToString();
+                    string? newXml = DuplicateSkatingDancePagesInReportXml(origXml, dancePagesCount);
+                    if (newXml != null)
+                        report.LoadFromString(newXml);
+                }
+
+                // ── 各ページのヘッダーをセット ────────────────────────────
+                // Page1 ヘッダー（総合+規定11）
+                SetSkatingPageHeader(report, "P1", prgNoDisplay, kubunNameDisp, rndListArr, rndNo,
+                    totalHeats, totalEntries, upText, scrMtd, dsCodes, dcTypes, danceCount);
+
+                // Page2〜 ヘッダー（種目別）
+                for (int di = 0; di < dancePagesCount; di++)
+                {
+                    string pgSfx = (di == 0) ? "P2" : $"P{di + 2:D2}";
+                    SetSkatingPageHeader(report, pgSfx, prgNoDisplay, kubunNameDisp, rndListArr, rndNo,
+                        totalHeats, totalEntries, upText, scrMtd, dsCodes, dcTypes, danceCount);
+                }
+
+                // ── Page1: 総合結果をセット ───────────────────────────────
+                SetSkatingTotalResultRows(report, playerNos, soGoMap, dsCodes, danceCount, PairsPerPage);
+
+                // ── Page1: 種目別順位を総合結果に補完 ────────────────────
+                SetSkatingTotalDanceRanks(report, playerNos, shomokuKekkaArr, dsCodes, danceCount, PairsPerPage);
+
+                // ── Page1: 規定10検討・規定11検討をセット（Page1下段） ──────
+                SetSkatingR10AndR11Rows(report, playerNos, r10Map, r11Map, PairsPerPage, MaxR11Rows);
+
+                // ── Page2〜: 種目別順位をセット ──────────────────────────
+                for (int di = 0; di < dancePagesCount; di++)
+                {
+                    string dncCd    = di < dsCodes.Length ? dsCodes[di] : "";
+                    string dnkPgSfx = (di == 0) ? "_P2" : $"_P{di + 2:D2}";
+
+                    // 種目名・ジャッジ情報
+                    string dncFullName = di < shomokuKekkaArr.Count
+                        ? (shomokuKekkaArr[di]["種目名"]?.ToString() ?? dncCd)
+                        : dncCd;
+                    int effJudgeCnt = di < shomokuKekkaArr.Count
+                        ? shomokuKekkaArr[di]["有効ジャッジ数"]?.ToObject<int>() ?? 0
+                        : 0;
+                    int majority = effJudgeCnt > 0 ? (effJudgeCnt / 2) + 1 : 0;
+
+                    SetTextObjectWithSuffix(report, "SK_DncName",  dnkPgSfx, dncFullName);
+                    SetTextObjectWithSuffix(report, "SK_JudgeInfo", dnkPgSfx,
+                        effJudgeCnt > 0 ? $"有効ジャッジ {effJudgeCnt} 名  過半数 {majority}" : "");
+
+                    // 種目結果（この種目の選手結果）
+                    if (dncMap.TryGetValue(dncCd, out var dncResult))
+                    {
+                        var senshuKekkaList = (dncResult["選手結果"] as JArray)?.OfType<JObject>().ToList()
+                            ?? new List<JObject>();
+                        // 背番号 → 選手結果
+                        var senshuMap = senshuKekkaList.ToDictionary(
+                            r => r["背番号"]?.ToString() ?? "",
+                            r => r, StringComparer.Ordinal);
+
+                        // ジャッジ記号リストを最初の選手から取得
+                        var judgeSymbols = new List<string>();
+                        if (senshuKekkaList.Count > 0)
+                        {
+                            var jDetails = (senshuKekkaList[0]["ジャッジ詳細結果"] as JArray)?.OfType<JObject>().ToList()
+                                ?? new List<JObject>();
+                            foreach (var jd2 in jDetails)
+                            {
+                                string sym = jd2["ジャッジ記号"]?.ToString() ?? "";
+                                if (!string.IsNullOrEmpty(sym))
+                                    judgeSymbols.Add(sym);
+                            }
+                        }
+
+                        // ジャッジ記号ヘッダーをセット
+                        for (int jIdx = 0; jIdx < MaxJudges; jIdx++)
+                        {
+                            string objName = $"SK_H_J{jIdx + 1:D2}{dnkPgSfx}";
+                            string sym = jIdx < judgeSymbols.Count ? judgeSymbols[jIdx] : "";
+                            SetTextObjectDirect(report, objName, sym,
+                                jIdx < judgeSymbols.Count ? FastReport.BorderLines.All : FastReport.BorderLines.None);
+                        }
+
+                        // 選手データ行をセット
+                        SetSkatingDanceRows(report, playerNos, senshuMap, judgeSymbols, PairsPerPage, dnkPgSfx);
+                    }
+                    else
+                    {
+                        // 種目データなし：ヘッダーを非表示
+                        for (int jIdx = 0; jIdx < MaxJudges; jIdx++)
+                            SetTextObjectDirect(report, $"SK_H_J{jIdx + 1:D2}{dnkPgSfx}", "",
+                                FastReport.BorderLines.None);
+                        SetSkatingDanceRows(report, playerNos, new Dictionary<string, JObject>(),
+                            new List<string>(), PairsPerPage, dnkPgSfx);
+                    }
+                }
+
+                _log.LogAdd(
+                    $"[ReportRenderer] BindSkatingScoreList 完了: kbn={kbnNo}/{kbnDspName}, rnd={rndName}, " +
+                    $"totalEntries={totalEntries}, dances={danceCount}, totalPages={totalPages}",
+                    _log.INFO);
+            }
+            catch (Exception ex)
+            {
+                _log.LogAdd($"[ReportRenderer] BindSkatingScoreList エラー: {ex.Message}", _log.ERR);
+            }
+        }
+
+        /// <summary>
+        /// 得点一覧表（順位法）のページヘッダーを設定する。
+        /// 各ページで suffix（"P1"/"P2"/"P3"等）付きの TextObject 名を使用する。
+        /// </summary>
+        private void SetSkatingPageHeader(
+            Report report,
+            string sfx,
+            string prgNoDisplay,
+            string kubunName,
+            JArray rndList,
+            string currentRndNo,
+            int totalHeats,
+            int totalEntries,
+            string upText,
+            string scrMtd,
+            string[] dsCodes,
+            string[] dcTypes,
+            int danceCount)
+        {
+            SetTextObject(report, $"PRGNO_{sfx}",       prgNoDisplay);
+            SetTextObject(report, $"KubunName_{sfx}",   kubunName);
+            SetTextObject(report, $"TotalHeat_{sfx}",   totalHeats > 0 ? $"{totalHeats} Heat" : "");
+            SetTextObject(report, $"TotalComp_{sfx}",   $"出場　{totalEntries}組");
+            SetTextObject(report, $"UP_{sfx}",          upText);
+            SetTextObject(report, $"ScoreMethod_{sfx}", scrMtd);
+
+            var roundObjs = rndList.OfType<JObject>().ToList();
+            for (int i = 1; i <= 7; i++)
+            {
+                string objName = $"Round{i}_{sfx}";
+                if (i - 1 < roundObjs.Count)
+                {
+                    var r2    = roundObjs[i - 1];
+                    string rn = r2["DC_RndName_J"]?.ToString() ?? "";
+                    bool isCur = r2["DC_RndNo"]?.ToString() == currentRndNo;
+                    SetTextObject(report, objName, rn);
+                    SetTextObjectFill(report, objName,
+                        isCur ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent);
+                }
+                else
+                {
+                    SetTextObject(report, objName, "");
+                    SetTextObjectFill(report, objName, System.Drawing.Color.Transparent);
+                }
+            }
+
+            for (int i = 1; i <= 5; i++)
+            {
+                bool hasDance = i <= danceCount;
+                SetTextObject(report, $"DS{i}_{sfx}", hasDance ? dsCodes[i - 1] : "");
+                SetTextObject(report, $"DC{i}_{sfx}", hasDance ? dcTypes[i - 1] : "");
+                var fc = hasDance ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent;
+                SetTextObjectFill(report, $"DS{i}_{sfx}", fc);
+                SetTextObjectFill(report, $"DC{i}_{sfx}", fc);
+            }
+        }
+
+        /// <summary>
+        /// Page1 総合結果行（SR_{nn}_C00〜C09）をセットする。
+        /// </summary>
+        private static void SetSkatingTotalResultRows(
+            Report report,
+            List<string> playerNos,
+            Dictionary<string, JObject> soGoMap,
+            string[] dsCodes,
+            int danceCount,
+            int pairsPerPage)
+        {
+            // 種目記号ヘッダー（SR_H_C01〜C10）
+            for (int i = 1; i <= 10; i++)
+            {
+                string colName = $"SR_H_C{i:D2}";
+                string hdr = i <= danceCount ? (dsCodes[i - 1] ?? "") : "";
+                SetTextObjectDirect(report, colName, hdr,
+                    i <= danceCount ? FastReport.BorderLines.All : FastReport.BorderLines.None);
+            }
+
+            for (int slot = 1; slot <= pairsPerPage; slot++)
+            {
+                string nn      = slot.ToString("D2");
+                int    dataIdx = slot - 1;
+                bool   hasData = dataIdx < playerNos.Count;
+
+                if (hasData)
+                {
+                    string bibNo    = playerNos[dataIdx];
+                    var result      = soGoMap.TryGetValue(bibNo, out var r) ? r : null;
+                    string rankDisp = result?["総合順位表記"]?.ToString()      ?? "";
+                    string totalPt  = result?["総合得点"]?.ToString()          ?? "";
+                    string kijoReg  = result?["総合順位決定規定"]?.ToString()   ?? "";
+                    string kijoVal  = result?["総合順位決定値"]?.ToString()     ?? "";
+
+                    SetTextObjectDirect(report, $"SR_{nn}_C00", bibNo, FastReport.BorderLines.All);
+                    // C01〜C10 は種目別順位（後で SetSkatingTotalDanceRanks で補完）
+                    for (int c = 1; c <= 10; c++)
+                        SetTextObjectDirect(report, $"SR_{nn}_C{c:D2}", "",
+                            c <= danceCount ? FastReport.BorderLines.All : FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SR_{nn}_C11", totalPt,  FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"SR_{nn}_C12", rankDisp, FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"SR_{nn}_C13", kijoReg,  FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"SR_{nn}_C14", kijoVal,  FastReport.BorderLines.All);
+                }
+                else
+                {
+                    SetTextObjectDirect(report, $"SR_{nn}_C00", "", FastReport.BorderLines.None);
+                    for (int c = 1; c <= 14; c++)
+                        SetTextObjectDirect(report, $"SR_{nn}_C{c:D2}", "", FastReport.BorderLines.None);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 総合結果の種目別順位列（SR_{nn}_C01〜C10）を、種目結果から補完する。
+        /// </summary>
+        private static void SetSkatingTotalDanceRanks(
+            Report report,
+            List<string> playerNos,
+            List<JObject> shomokuKekkaArr,
+            string[] dsCodes,
+            int danceCount,
+            int pairsPerPage)
+        {
+            // 種目記号 → (背番号 → 種目順位番号) マップ
+            var dncRankMap = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            foreach (var dncResult in shomokuKekkaArr)
+            {
+                string dncCd = dncResult["種目記号"]?.ToString() ?? "";
+                if (string.IsNullOrEmpty(dncCd)) continue;
+                var map = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var sk in (dncResult["選手結果"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                {
+                    string bib  = sk["背番号"]?.ToString()       ?? "";
+                    string rank = sk["種目順位番号"]?.ToString()  ?? "";
+                    if (!string.IsNullOrEmpty(bib)) map[bib] = rank;
+                }
+                dncRankMap[dncCd] = map;
+            }
+
+            for (int slot = 1; slot <= pairsPerPage; slot++)
+            {
+                if (slot - 1 >= playerNos.Count) break;
+                string nn    = slot.ToString("D2");
+                string bibNo = playerNos[slot - 1];
+                for (int c = 1; c <= danceCount; c++)
+                {
+                    string dncCd = c <= dsCodes.Length ? (dsCodes[c - 1] ?? "") : "";
+                    string rank  = (!string.IsNullOrEmpty(dncCd) && dncRankMap.TryGetValue(dncCd, out var rmap))
+                        ? (rmap.TryGetValue(bibNo, out var rk) ? rk : "")
+                        : "";
+                    SetTextObjectDirect(report, $"SR_{nn}_C{c:D2}", rank, FastReport.BorderLines.All);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Page1 規定10検討行（R10_{nn}_C00〜C07）と規定11検討行（R11_{nn}_C00〜C07）をセットする。
+        /// R10: 全選手対象（pairsPerPage行）。R11: 対象者のみ（maxR11Rows行）。
+        /// </summary>
+        private static void SetSkatingR10AndR11Rows(
+            Report report,
+            List<string> playerNos,
+            Dictionary<string, JObject> r10Map,
+            Dictionary<string, JObject> r11Map,
+            int pairsPerPage,
+            int maxR11Rows)
+        {
+            string[] colLabels = { "1", "1&2", "1-3", "1-4", "1-5", "1-6" };
+
+            // ── 規定10検討: 全選手対象 ──────────────────────────────────
+            for (int slot = 1; slot <= pairsPerPage; slot++)
+            {
+                string nn      = slot.ToString("D2");
+                bool   hasData = (slot - 1) < playerNos.Count;
+
+                if (hasData)
+                {
+                    string bibNo = playerNos[slot - 1];
+                    r10Map.TryGetValue(bibNo, out var r10Row);
+
+                    var colData = (r10Row?["列データ"] as JArray)?.OfType<JObject>().ToList()
+                        ?? new List<JObject>();
+                    var colDict = colData.ToDictionary(
+                        c => c["上位合計順位まで"]?.ToString() ?? "",
+                        c => c["合計数"]?.ToString() ?? "",
+                        StringComparer.Ordinal);
+                    string rankDisp = r10Row?["判定順位"]?.ToString() ?? "";
+
+                    SetTextObjectDirect(report, $"R10_{nn}_C00", bibNo, FastReport.BorderLines.All);
+                    for (int c = 0; c < colLabels.Length; c++)
+                    {
+                        string val = colDict.TryGetValue(colLabels[c], out var v) ? v : "";
+                        var obj = report.FindObject($"R10_{nn}_C{(c + 1):D2}") as FastReport.TextObject;
+                        if (obj != null)
+                        {
+                            obj.Text = val; obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = !string.IsNullOrEmpty(val)
+                                ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                        }
+                    }
+                    SetTextObjectDirect(report, $"R10_{nn}_C07",
+                        !string.IsNullOrEmpty(rankDisp) ? rankDisp : "", FastReport.BorderLines.All);
+                }
+                else
+                {
+                    SetTextObjectDirect(report, $"R10_{nn}_C00", "", FastReport.BorderLines.None);
+                    for (int c = 1; c <= 7; c++)
+                    {
+                        var obj = report.FindObject($"R10_{nn}_C{c:D2}") as FastReport.TextObject;
+                        if (obj != null) { obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None; obj.FillColor = System.Drawing.Color.Transparent; }
+                    }
+                }
+            }
+
+            // ── 規定11検討: 対象者のみ（背番号順に詰めて表示） ─────────────
+            // r11Mapのキーは対象者のみ（規定11で確定した選手）
+            var r11Bibs = r11Map.Keys.ToList();
+            // 背番号数値昇順にソート
+            r11Bibs.Sort((a, b) =>
+            {
+                bool aOk = int.TryParse(a, out int ai), bOk = int.TryParse(b, out int bi);
+                if (aOk && bOk) return ai.CompareTo(bi);
+                return string.Compare(a, b, StringComparison.Ordinal);
+            });
+
+            for (int slot = 1; slot <= maxR11Rows; slot++)
+            {
+                string nn      = slot.ToString("D2");
+                bool   hasData = (slot - 1) < r11Bibs.Count;
+
+                if (hasData)
+                {
+                    string bibNo = r11Bibs[slot - 1];
+                    r11Map.TryGetValue(bibNo, out var r11Row);
+
+                    var colData = (r11Row?["列データ"] as JArray)?.OfType<JObject>().ToList()
+                        ?? new List<JObject>();
+                    var colDict = colData.ToDictionary(
+                        c => c["上位合計順位まで"]?.ToString() ?? "",
+                        c => c["合計数"]?.ToString() ?? "",
+                        StringComparer.Ordinal);
+                    string rankDisp = r11Row?["判定順位"]?.ToString() ?? "";
+
+                    SetTextObjectDirect(report, $"R11_{nn}_C00", bibNo, FastReport.BorderLines.All);
+                    for (int c = 0; c < colLabels.Length; c++)
+                    {
+                        string val = colDict.TryGetValue(colLabels[c], out var v) ? v : "";
+                        var obj = report.FindObject($"R11_{nn}_C{(c + 1):D2}") as FastReport.TextObject;
+                        if (obj != null)
+                        {
+                            obj.Text = val; obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = !string.IsNullOrEmpty(val)
+                                ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                        }
+                    }
+                    SetTextObjectDirect(report, $"R11_{nn}_C07",
+                        !string.IsNullOrEmpty(rankDisp) ? rankDisp : "", FastReport.BorderLines.All);
+                }
+                else
+                {
+                    SetTextObjectDirect(report, $"R11_{nn}_C00", "", FastReport.BorderLines.None);
+                    for (int c = 1; c <= 7; c++)
+                    {
+                        var obj = report.FindObject($"R11_{nn}_C{c:D2}") as FastReport.TextObject;
+                        if (obj != null) { obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None; obj.FillColor = System.Drawing.Color.Transparent; }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Page3〜種目別順位行（SK_{nn}_C00/J01〜J13/R5/R6/R7a/R7b/R8/Jdg/Rank）をセットする。
+        /// suffix="" は種目1のページ、suffix="_P04" 等は種目N のページ。
+        /// </summary>
+        private static void SetSkatingDanceRows(
+            Report report,
+            List<string> playerNos,
+            Dictionary<string, JObject> senshuMap,
+            List<string> judgeSymbols,
+            int pairsPerPage,
+            string suffix)
+        {
+            const int MaxJudges = 13;
+
+            for (int slot = 1; slot <= pairsPerPage; slot++)
+            {
+                string nn = slot.ToString("D2");
+                int    dataIdx = slot - 1;
+                bool   hasData = dataIdx < playerNos.Count;
+
+                if (hasData)
+                {
+                    string bibNo = playerNos[dataIdx];
+                    senshuMap.TryGetValue(bibNo, out var sk);
+
+                    SetTextObjectDirect(report, $"SK_{nn}_C00{suffix}", bibNo, FastReport.BorderLines.All);
+
+                    // ジャッジ毎の順位（順位法なので「順位点」フィールドを使用）
+                    var jDetails = sk != null
+                        ? ((sk["ジャッジ詳細結果"] as JArray)?.OfType<JObject>()
+                            .ToDictionary(j => j["ジャッジ記号"]?.ToString() ?? "",
+                                          j =>
+                                          {
+                                              // 順位点を優先、なければ素点（テストデータ互換）
+                                              var 順位点tok = j["順位点"];
+                                              var 素点tok  = j["素点"];
+                                              decimal vRank = 順位点tok?.ToObject<decimal>() ?? 0m;
+                                              decimal vRaw  = 素点tok?.ToObject<decimal>() ?? 0m;
+                                              // 順位点が0でも素点が有効な場合はテストデータ（素点=ジャッジ順位）
+                                              decimal v = (vRank != 0m) ? vRank : vRaw;
+                                              return v == 0m ? "" : ((int)v).ToString();
+                                          },
+                                StringComparer.Ordinal)
+                           ?? new Dictionary<string, string>())
+                        : new Dictionary<string, string>();
+
+                    for (int jIdx = 0; jIdx < MaxJudges; jIdx++)
+                    {
+                        string objName = $"SK_{nn}_J{jIdx + 1:D2}{suffix}";
+                        bool hasJudge  = jIdx < judgeSymbols.Count;
+                        string sym     = hasJudge ? judgeSymbols[jIdx] : "";
+                        string val     = hasJudge && jDetails.TryGetValue(sym, out var jv) ? jv : "";
+                        SetTextObjectDirect(report, objName, val,
+                            hasJudge ? FastReport.BorderLines.All : FastReport.BorderLines.None);
+                    }
+
+                    // 順位法詳細
+                    JObject? rankhoBDetail = sk?["順位法詳細"] as JObject;
+
+                    // 新形式（実DB）: 規定5_過半数順位, 確定規程 等
+                    // 旧形式（テスト）: 規定5過半数, 規定5適用 等
+                    // どちらにも対応する
+                    string r5val  = rankhoBDetail?["規定5_過半数順位"]?.ToString()
+                                 ?? rankhoBDetail?["規定5過半数"]?.ToString() ?? "";
+                    string r6val  = rankhoBDetail?["規定6_過半数以上の数"]?.ToString()
+                                 ?? rankhoBDetail?["規定6多数決"]?.ToString() ?? "";
+                    string r7aval = rankhoBDetail?["規定7a_過半数以上の合計"]?.ToString()
+                                 ?? rankhoBDetail?["規定7a上位加算"]?.ToString() ?? "";
+                    string r7bval = rankhoBDetail?["規定7b_過半数より下の合計"]?.ToString()
+                                 ?? rankhoBDetail?["規定7b下位加算"]?.ToString() ?? "";
+                    string r8val  = rankhoBDetail?["規定8繰り上げ"]?.ToString() ?? "";
+
+                    // 確定規定による適用フラグ（新形式優先）
+                    string 確定規程 = rankhoBDetail?["確定規程"]?.ToString() ?? "";
+                    bool r5app  = 確定規程 != "" ? 確定規程 == "規定5"
+                                : rankhoBDetail?["規定5適用"]?.ToObject<bool>() ?? false;
+                    bool r6app  = 確定規程 != "" ? 確定規程 == "規定6"
+                                : rankhoBDetail?["規定6適用"]?.ToObject<bool>() ?? false;
+                    bool r7aapp = 確定規程 != "" ? 確定規程 == "規定7(a)"
+                                : rankhoBDetail?["規定7a適用"]?.ToObject<bool>() ?? false;
+                    bool r7bapp = 確定規程 != "" ? 確定規程 == "規定7(b)"
+                                : rankhoBDetail?["規定7b適用"]?.ToObject<bool>() ?? false;
+                    bool r8app  = 確定規程 != "" ? 確定規程 == "規定8"
+                                : rankhoBDetail?["規定8適用"]?.ToObject<bool>() ?? false;
+
+                    // 判定テキスト（確定規程 または 旧形式の種目順位決定規定）
+                    string jdgText = 確定規程 != ""
+                        ? 確定規程
+                        : sk?["種目順位決定規定"]?.ToString() ?? "";
+
+                    // R5
+                    {
+                        var obj = report.FindObject($"SK_{nn}_R5{suffix}") as FastReport.TextObject;
+                        if (obj != null)
+                        {
+                            obj.Text = r5val; obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = r5app ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                        }
+                    }
+                    // R6
+                    {
+                        var obj = report.FindObject($"SK_{nn}_R6{suffix}") as FastReport.TextObject;
+                        if (obj != null)
+                        {
+                            obj.Text = r6val; obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = r6app ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                        }
+                    }
+                    // R7a
+                    {
+                        var obj = report.FindObject($"SK_{nn}_R7a{suffix}") as FastReport.TextObject;
+                        if (obj != null)
+                        {
+                            obj.Text = r7aval; obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = r7aapp ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                        }
+                    }
+                    // R7b
+                    {
+                        var obj = report.FindObject($"SK_{nn}_R7b{suffix}") as FastReport.TextObject;
+                        if (obj != null)
+                        {
+                            obj.Text = r7bval; obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = r7bapp ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                        }
+                    }
+                    // R8
+                    {
+                        var obj = report.FindObject($"SK_{nn}_R8{suffix}") as FastReport.TextObject;
+                        if (obj != null)
+                        {
+                            obj.Text = r8val; obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = r8app ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                        }
+                    }
+
+                    string rankVal = sk?["種目順位番号"]?.ToString() ?? "";
+                    // 上段：判定順位
+                    SetTextObjectDirect(report, $"SK_{nn}_Rank{suffix}", rankVal, FastReport.BorderLines.All);
+                    // 下段：背番号・規定・判定テキスト・判定順位
+                    SetTextObjectDirect(report, $"SK_{nn}_R0{suffix}",   bibNo,   FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"SK_{nn}_Jdg{suffix}",  jdgText, FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"SK_{nn}_Rank2{suffix}", rankVal, FastReport.BorderLines.All);
+                }
+                else
+                {
+                    SetTextObjectDirect(report, $"SK_{nn}_C00{suffix}", "", FastReport.BorderLines.None);
+                    for (int jIdx = 0; jIdx < MaxJudges; jIdx++)
+                        SetTextObjectDirect(report, $"SK_{nn}_J{jIdx + 1:D2}{suffix}", "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_Rank{suffix}",  "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_R0{suffix}",    "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_R5{suffix}",    "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_R6{suffix}",    "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_R7a{suffix}",   "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_R7b{suffix}",   "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_R8{suffix}",    "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_Jdg{suffix}",   "", FastReport.BorderLines.None);
+                    SetTextObjectDirect(report, $"SK_{nn}_Rank2{suffix}", "", FastReport.BorderLines.None);
+                }
+            }
+        }
+
+        /// <summary>
+        /// SetTextObject の suffix 付きバリアント。
+        /// "{name}{suffix}" という名前の TextObject を探してテキストをセットする。
+        /// </summary>
+        private static void SetTextObjectWithSuffix(Report report, string name, string suffix, string text)
+        {
+            var obj = report.FindObject(name + suffix) as FastReport.TextObject;
+            if (obj != null) obj.Text = text;
+        }
+
+        /// <summary>
+        /// 得点一覧表（順位法）の種目別ページを複製する。
+        /// frx に含まれる Page3 を基に Page4〜Page{2+danceCount} を追加する。
+        /// DuplicatePageInReportXml とは異なり、Page1・Page2 はそのままにして
+        /// Page3 のみを dancePagesCount 枚複製する。
+        /// </summary>
+        private static string? DuplicateSkatingDancePagesInReportXml(string reportXml, int dancePagesCount)
+        {
+            if (dancePagesCount <= 1) return null;
+
+            // Page2 を抽出（種目別テンプレート）
+            const string page2Open  = "<ReportPage Name=\"Page2\"";
+            const string pageClose  = "</ReportPage>";
+
+            int p2Start = reportXml.IndexOf(page2Open, StringComparison.Ordinal);
+            if (p2Start < 0) return null;
+
+            int p2End = reportXml.IndexOf(pageClose, p2Start, StringComparison.Ordinal);
+            if (p2End < 0) return null;
+
+            string page2Xml = reportXml.Substring(p2Start, p2End - p2Start + pageClose.Length);
+
+            var sb = new System.Text.StringBuilder();
+            for (int pg = 2; pg <= dancePagesCount; pg++)
+            {
+                int pageNo = pg + 1;  // Page3, Page4, ...
+                string suffix = $"P{pageNo:D2}";
+                // Page2 → PageN, _P2 サフィックス → _Pxx サフィックス
+                string newPage = page2Xml.Replace("Page2\"", $"Page{pageNo}\"");
+                newPage = System.Text.RegularExpressions.Regex.Replace(
+                    newPage,
+                    @"Name=""([^""]+)""",
+                    m =>
+                    {
+                        string n = m.Groups[1].Value;
+                        n = n.Replace("_P2", $"_{suffix}");
+                        return $"Name=\"{n}\"";
+                    });
+                sb.Append(newPage);
+            }
+
+            int insertPos = reportXml.LastIndexOf("</Report>", StringComparison.Ordinal);
+            if (insertPos < 0) return null;
+
+            return reportXml.Substring(0, insertPos) + sb.ToString() + reportXml.Substring(insertPos);
         }
     }
 }

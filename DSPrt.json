@@ -227,6 +227,15 @@
       "Copies": 1,
       "Duplex": "OneSided",
       "PaperSize": "A4"
+    },
+    {
+      "LayoutId": "RANK_SCORE_LIST_A4",
+      "FrxPath": "./Reports/得点一覧表_順位法_横.frx",
+      "DataType": "DA_Master+DS_Status+DV_Result+Skating_Score",
+      "PrinterName": "",
+      "Copies": 1,
+      "Duplex": "OneSided",
+      "PaperSize": "A4"
     }
   ]
 }

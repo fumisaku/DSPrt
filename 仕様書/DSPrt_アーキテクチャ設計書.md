@@ -1,8 +1,8 @@
 # DSPrt アーキテクチャ設計書
 
 > **帳票印刷プログラム | DScore プロジェクト | Windows 11 WPF アプリケーション**
-> 最終更新: 2026-07-30（Phase 7 完了・PrintDirect 直接描画方式・出場者連絡票（横）実装・フォントサイズ補正・ゼロ埋め仕様確定）
-> ステータス: **Phase 1〜7 実装完了**
+> 最終更新: 2026-08-02（「規程」→「規定」表記統一・帳票実装完了）
+> ステータス: **Phase 1〜8 実装完了（スケーティング帳票完成）**
 
 ---
 
@@ -1198,7 +1198,7 @@ PreviewBrowser.Navigate(new Uri(absoluteHtmlPath, UriKind.Absolute));
 | 18b | 出場者連絡票（横）| ヒート毎の出場者リスト（横A4・6ヒート行×20組）司会向け | 印刷 | **DA_Master + DS_Status** | `PLAYER_NOTICE_HORIZONTAL_A4` |
 | 19 | 賞状印刷 | 表彰状 | 印刷 | DV_Result | `AWARD_CERTIFICATE` |
 | 20 | 決勝入賞者名簿 | 決勝の順位 | 印刷 | DV_Result | `FINAL_RESULT_A4` |
-| 21 | スケート結果 | スケーティングの計算結果 | 印刷 | DV_Result | `SKATING_RESULT_A4` |
+| 21 | 得点一覧表（順位法） | スケーティングシステムの採点結果一覧（総合結果・規定10検討・規定11検討・種目別順位） | 印刷 | DA_Master + DS_Status + DV_Result + Skating_Score | `RANK_SCORE_LIST_A4` |
 | 22 | 昇級資格名簿 | 昇級対象者一覧 | 印刷 | DV_Result | `PROMOTION_LIST_A4` |
 | 23 | 昇級結果報告書 | 昇級結果の報告 | 印刷 | DV_Result | `PROMOTION_RESULT_REPORT_A4` |
 | 24 | 昇級結果一覧 | 昇級結果の一覧 | 印刷 | DV_Result | `PROMOTION_RESULT_LIST_A4` |
@@ -1299,10 +1299,92 @@ PreviewBrowser.Navigate(new Uri(absoluteHtmlPath, UriKind.Absolute));
 |--------|-----------|
 | 審査表（ジャッジペーパー） | AJS31 採点方式固有のフォーマットか、汎用か |
 | 昇級資格報告書 / 昇級組数確認書 | 昇級判定ロジックの結果をどの JSON フィールドから取得するか |
-| スケート結果 | スケーティング計算結果の JSON 構造（DV_Result の一部か別データか） |
+| スケート結果 | **実装済み**（§15-3 参照）。layoutId=`RANK_SCORE_LIST_A4`、frx=`得点一覧表_順位法_横.frx`、dataType=`DA_Master+DS_Status+DV_Result+Skating_Score`。 |
 | 各種納付書（#25〜#27） | 金額・口座情報の出所（DA_Master に含まれるか、別設定か） |
 | 出場者連絡票（縦）| ~~連絡情報（メール・電話等）は DA_Master の `DM_MEMBERs` に含まれるか~~ → **サンプル帳票確認済み**。ヒート毎の出場者リスト。DS_Status からヒート割り当てを取得し DA_Master で選手名を解決する。dataType=`DA_Master+DS_Status` に確定 |
 | 出場者連絡票（横）| **実装済み**（§15-3 参照）。layoutId=`PLAYER_NOTICE_HORIZONTAL_A4`、frx=`ヒート表_横.frx`、dataType=`DA_Master+DS_Status+Horizontal`。data フィールドに `KbnNo`/`RndNo`/`DGrpNo` を指定。 |
+
+#### RANK_SCORE_LIST_A4（得点一覧表・順位法）のバインド方式
+
+`layoutId = "RANK_SCORE_LIST_A4"`、`dataType = "DA_Master+DS_Status+DV_Result+Skating_Score"` として登録。
+`ReportRenderer` の `BindSkatingScoreList` メソッドが処理し、`得点一覧表_順位法_横.frx` を使用する。
+`PR_PRINT.data` には対象ラウンドの `DV_Result` JSON（`DV_Result_J` クラスから生成）を含める。
+
+**帳票構成（ページ）:**
+
+| ページ | 内容 | frx ページ | オブジェクトサフィックス |
+|--------|------|-----------|------------------------|
+| Page1  | 総合結果（種目別順位・合計点・総合順位・決定規定）＋規定10検討表（全選手）＋規定11検討表（対象者のみ最大6行） | Page1 固定 | `_P1` |
+| Page2  | 種目1の種目別順位（ジャッジ順位・規定5〜8・判定テキスト） | Page2 テンプレート | `_P2` |
+| Page3〜 | 種目2以降の種目別順位（種目数-1 ページ動的複製） | Page2 を複製 | `_P03`/`_P04`... |
+
+**TextObject 命名規則（フォーマット）:**
+
+| オブジェクト名パターン | 内容 |
+|----------------------|------|
+| `PRGNO_P1`/`PRGNO_P2`/`PRGNO_P03`... | 進行番号（各ページヘッダー） |
+| `KubunName_P1`/`KubunName_P2`... | 区分名（各ページヘッダー） |
+| `SR_{nn}_C00`〜`SR_{nn}_C10` | 総合結果：背番号・種目別順位（10種目まで） |
+| `SR_{nn}_C11`/`C12`/`C13`/`C14` | 総合結果：合計点・総合順位・決定規定・決定値 |
+| `R10_{nn}_C00`〜`R10_{nn}_C07` | 規定10検討：背番号・上位合計データ（1〜1-6）・判定順位（全選手、最大20行） |
+| `R11_{nn}_C00`〜`R11_{nn}_C07` | 規定11検討：背番号・上位合計データ（1〜1-6）・判定順位（対象者のみ、最大6行） |
+| `SK_{nn}_C00_P2`/`_P03`... | 種目別：背番号（P2〜） |
+| `SK_{nn}_J01_P2`〜`SK_{nn}_J13_P2` | 種目別：各ジャッジ付与順位 |
+| `SK_{nn}_R5_P2`〜`SK_{nn}_R8_P2` | 種目別：規定5〜8の値（確定規程に応じて黄色ハイライト） |
+| `SK_{nn}_Jdg_P2` | 種目別：判定テキスト（確定規程名） |
+| `SK_{nn}_Rank_P2` / `SK_{nn}_Rank2_P2` | 種目別：判定順位 |
+
+**ページ動的複製（`DuplicateSkatingDancePagesInReportXml`）:**
+
+- frx の Page2 を種目数分複製（種目が2以上の場合）
+- 複製時に `_P2` サフィックスを `_P03`/`_P04`... に置換
+- 種目1ページ（Page2）のオブジェクトはサフィックス `_P2`（frx テンプレートのまま）
+
+**DV_Result JSON の必要フィールド（順位法・実際のDB出力形式）:**
+
+```json
+{
+  "区分番号": "1", "ラウンド番号": "1", "区分名": "...", "ラウンド名": "...", "採点方式名": "順位法",
+  "総合結果": [
+    {
+      "背番号": "203", "総合順位番号": 1, "総合得点": 14,
+      "総合順位表記": "1位",
+      "総合順位決定規定": "規定9",
+      "総合順位決定値": "14"
+    }, ...
+  ],
+  "総合規定10検討": [
+    { "背番号": "203", "判定順位": null, "列データ": [...] }, ...
+  ],
+  "総合規定11検討": [
+    {
+      "背番号": "209", "判定順位": 2,
+      "列データ": [{ "上位合計順位まで": "1&2", "合計数": 3 }, ...]
+    }, ...
+  ],
+  "種目結果": [
+    {
+      "種目記号": "W", "種目名": "Waltz", "種目順": 1, "有効ジャッジ数": 9,
+      "選手結果": [
+        {
+          "背番号": "257", "種目順位番号": 1, "種目順位表記": "1位",
+          "ジャッジ詳細結果": [{ "ジャッジ記号": "A", "素点": 0, "順位点": 1.0 }, ...],
+          "順位法詳細": {
+            "確定規程": "規定5",
+            "規定5_過半数順位": 1,
+            "規定6_過半数以上の数": 5,
+            "規定7a_過半数以上の合計": 3.0,
+            "規定7b_過半数より下の合計": 8.0
+          }
+        }, ...
+      ]
+    }, ...
+  ]
+}
+```
+
+> **互換性**: `ReportRenderer` は新形式（`確定規程`/`規定5_過半数順位`等）と旧形式（`規定5適用`/`規定5過半数`等）の両方に対応。
+> **ジャッジ付与順位**: 新形式は `順位点`、旧形式（テストデータ）は `素点` にジャッジ付与順位が格納される。
 
 ---
 
@@ -1331,8 +1413,10 @@ PreviewBrowser.Navigate(new Uri(absoluteHtmlPath, UriKind.Absolute));
 | **Phase 5** UI 整備 | `MainWindow` 全タブ実装（ジョブログ DataGrid・再印刷・プレビュー WebBrowser・帳票設定・接続ログ）、PR_DONE 自動送信、キューサイズ表示 | **✅ 完了** |
 | **Phase 6** テスト・トラブルシュート | テスト印刷機能（WPF PrintDialog プリンター選択）、FastReport DataTable バインディング問題解決、WebMode 切り替え、URI エラー修正、プレビュー動作確認 | **✅ 完了** |
 | **Phase 7** 印刷品質改善・出場者連絡票 | PNG 変換方式を廃止し `PreparedPages.GetPage(i).Draw(FRPaintEventArgs)` による直接描画方式に移行（高品質・高速）。`BindPlayerNoticeHorizontal` 実装（`ヒート表_横.frx` 流用）、テストデータ 3 件作成。 | **✅ 完了**（2026-07-30） |
+| **Phase 8** 得点一覧表（順位法） | スケーティングシステム（順位法）用の得点一覧表を実装。`BindSkatingScoreList` 実装（`得点一覧表_順位法_横.frx` 新規作成）。総合結果（規定9〜11）・規定11検討（同一Page1下段）・種目別順位（規定5〜8）の構成。`DuplicateSkatingDancePagesInReportXml` で種目数分のPage2複製。テストデータ 1 件作成。 | **✅ 完了**（2026-08-01） |
+| **Phase 8 継続** データ構造整合・表記統一 | `DV_Result_J` に `総合規定10検討`/`総合規定11検討`・`DV_規定検討_J`/`DV_規定検討列データ_J` クラス追加。`DV_総合結果_J` に `総合順位決定規定`/`総合順位決定値` 追加。`DV_種目結果_J` に `種目名`/`有効ジャッジ数` 追加。`SkatingMethodAggregator` に決定規定判定・規定10/11検討生成・種目名取得・確定規定グループロジック追加。`ReportRenderer` を新旧両フォーマット対応・PairsPerPage=20・R10/R11分離に修正。frx を A4縦ヘッダー・規定10全選手20行・規定11対象者6行・種目別下表幅拡張に再設計。「規程」→「規定」表記をAggregatorsのJSON出力・ReportRenderer・設計書で統一。 | **✅ 完了**（2026-08-02） |
 | **今後** DSServer_main 連携 | `PR_MessageHandler`（サーバー側）・`GM_PRT_PRINT` ルーティング・`F010_Main.cs` への追加 | 未着手 |
-| **今後** `.frx` 帳票デザイン | 30 帳票分の `.frx` テンプレート作成（現在 5 枚: PlayerList_A4, FinalResult_A4, Award_Certificate, PlayerNotice_A4, ヒート表_横） | 未着手（優先度順に着手） |
+| **今後** `.frx` 帳票デザイン | 30 帳票分の `.frx` テンプレート作成（現在 6 枚: PlayerList_A4, FinalResult_A4, Award_Certificate, PlayerNotice_A4, ヒート表_横, 得点一覧表_順位法_横） | 未着手（優先度順に着手） |
 
 ### Phase 6 で解決した主要な問題
 
