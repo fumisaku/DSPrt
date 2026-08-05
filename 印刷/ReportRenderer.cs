@@ -5924,8 +5924,11 @@ namespace DSPrt.印刷
                 // ── Page1: 種目別順位を総合結果に補完 ────────────────────
                 SetSkatingTotalDanceRanks(report, playerNos, shomokuKekkaArr, dsCodes, danceCount, PairsPerPage);
 
-                // ── Page1: 規定10検討・規定11検討をセット（Page1下段） ──────
-                SetSkatingR10AndR11Rows(report, playerNos, r10Map, r11Map, PairsPerPage, MaxR11Rows);
+                // ── Page1: 規定10検討（同点者のみ・count(sum)形式）──────────
+                SetSkatingR10Rows(report, playerNos, soGoMap, shomokuKekkaArr, PairsPerPage);
+
+                // ── Page1: 規定11（再スケーティング）元データ・判定結果 ──────
+                SetSkatingR11BAndCRows(report, soGoMap, soGoR11, shomokuKekkaArr, MaxR11Rows);
 
                 // ── Page2〜: 種目別順位をセット ──────────────────────────
                 for (int di = 0; di < dancePagesCount; di++)
@@ -5945,6 +5948,8 @@ namespace DSPrt.印刷
                     SetTextObjectWithSuffix(report, "SK_DncName",  dnkPgSfx, dncFullName);
                     SetTextObjectWithSuffix(report, "SK_JudgeInfo", dnkPgSfx,
                         effJudgeCnt > 0 ? $"有効ジャッジ {effJudgeCnt} 名  過半数 {majority}" : "");
+                    // 規定8は使用しないためヘッダーを非表示
+                    SetTextObjectDirect(report, $"SK_H2_R8{dnkPgSfx}", "", FastReport.BorderLines.None);
 
                     // 種目結果（この種目の選手結果）
                     if (dncMap.TryGetValue(dncCd, out var dncResult))
@@ -6095,6 +6100,8 @@ namespace DSPrt.印刷
                     string totalPt  = result?["総合得点"]?.ToString()          ?? "";
                     string kijoReg  = result?["総合順位決定規定"]?.ToString()   ?? "";
                     string kijoVal  = result?["総合順位決定値"]?.ToString()     ?? "";
+                    // 仕様書第3章: 帳票では「規定11」と表示せず「同順位」と表示する
+                    if (kijoReg == "規定11") kijoReg = "同順位";
 
                     SetTextObjectDirect(report, $"SR_{nn}_C00", bibNo, FastReport.BorderLines.All);
                     // C01〜C10 は種目別順位（後で SetSkatingTotalDanceRanks で補完）
@@ -6378,52 +6385,114 @@ namespace DSPrt.印刷
         }
 
         /// <summary>
-        /// Page1 規定10検討行（R10_{nn}_C00〜C07）と規定11検討行（R11_{nn}_C00〜C07）をセットする。
-        /// R10: 全選手対象（pairsPerPage行）。R11: 対象者のみ（maxR11Rows行）。
+        /// 規定10検討（R10）: 規定9同点グループのみ表示。
+        /// 各グループの目標順位 N のみ count(sum) 形式で1列に表示し、他列はブランク。
+        /// 全同点の場合は判定順位に「同点(再スケ)」と表示。
         /// </summary>
-        private static void SetSkatingR10AndR11Rows(
+        private static void SetSkatingR10Rows(
             Report report,
             List<string> playerNos,
-            Dictionary<string, JObject> r10Map,
-            Dictionary<string, JObject> r11Map,
-            int pairsPerPage,
-            int maxR11Rows)
+            Dictionary<string, JObject> soGoMap,
+            List<JObject> shomokuKekkaArr,
+            int pairsPerPage)
         {
-            string[] colLabels = { "1", "1&2", "1-3", "1-4", "1-5", "1-6" };
+            // 選手ごとの種目順位リスト
+            var rankLists = BuildPlayerRankLists(shomokuKekkaArr, playerNos);
 
-            // ── 規定10検討: 全選手対象 ──────────────────────────────────
+            // 規定9同点グループ（同じ総合順位番号を持つ2名以上）
+            var tiedGroups = playerNos
+                .Where(b => soGoMap.ContainsKey(b))
+                .GroupBy(b => soGoMap[b]["総合順位番号"]?.ToObject<int>() ?? int.MaxValue)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            var tiedBibSet = new HashSet<string>(tiedGroups.SelectMany(g => g), StringComparer.Ordinal);
+
+            // 各同点グループの R10 表示データ: bib → (colIdx, cellValue, rankDisp)
+            // colIdx: 1=C01("1"), 2=C02("1&2"), 3=C03("1-3"), 4=C04("1-4"), 5=C05("1-5"), 6=C06("1-6")
+            var r10Display = new Dictionary<string, (int colIdx, string cell, string rank)>(StringComparer.Ordinal);
+
+            foreach (var g in tiedGroups)
+            {
+                int targetRank = g.Key; // 同点グループの目標順位 N
+                int colIdx = Math.Clamp(targetRank, 1, 6);
+
+                var vals = g.Select(bib =>
+                {
+                    var ranks = rankLists.TryGetValue(bib, out var rl) ? rl : new List<int>();
+                    int cnt = ranks.Count(r => r <= targetRank);
+                    int sum = ranks.Where(r => r <= targetRank).Sum();
+                    return (bib, cnt, sum);
+                }).ToList();
+
+                // 規定10a(cnt)降順 → 規定10b(sum)昇順 でソート
+                vals.Sort((a, b) =>
+                {
+                    if (a.cnt != b.cnt) return b.cnt - a.cnt;
+                    return a.sum - b.sum;
+                });
+
+                bool isTied = vals.Count > 1
+                    && vals[0].cnt == vals[^1].cnt
+                    && vals[0].sum == vals[^1].sum;
+
+                int baseRank = targetRank;
+                for (int i = 0; i < vals.Count; i++)
+                {
+                    var (bib, cnt, sum) = vals[i];
+                    string cell = $"{cnt}({sum})";
+                    string rankDisp = isTied ? "同点(再スケ)"
+                        : (baseRank + i).ToString();
+                    r10Display[bib] = (colIdx, cell, rankDisp);
+                }
+            }
+
+            // 表示: 同点者のみ背番号昇順で詰めて表示
+            var tiedBibsSorted = tiedBibSet.ToList();
+            tiedBibsSorted.Sort((a, b) =>
+            {
+                bool aOk = int.TryParse(a, out int ai), bOk = int.TryParse(b, out int bi);
+                if (aOk && bOk) return ai.CompareTo(bi);
+                return string.Compare(a, b, StringComparison.Ordinal);
+            });
+
+            // 使用する colIdx のみヘッダーを表示し、未使用列は非表示
+            var usedColIdxs = tiedGroups.Select(g => Math.Clamp(g.Key, 1, 6)).Distinct().ToHashSet();
+            string[] r10ColHdrs = { "", "1位以内", "1&2位以内", "1-3位以内", "1-4位以内", "1-5位以内", "1-6位以内" };
+            for (int c = 1; c <= 6; c++)
+            {
+                var hdr = report.FindObject($"R10_H_C{c:D2}") as FastReport.TextObject;
+                if (hdr == null) continue;
+                bool active = usedColIdxs.Contains(c);
+                hdr.Text = active ? r10ColHdrs[c] : "";
+                hdr.Border.Lines = active ? FastReport.BorderLines.All : FastReport.BorderLines.None;
+                hdr.FillColor = active ? System.Drawing.Color.White : System.Drawing.Color.Transparent;
+            }
+
             for (int slot = 1; slot <= pairsPerPage; slot++)
             {
-                string nn      = slot.ToString("D2");
-                bool   hasData = (slot - 1) < playerNos.Count;
+                string nn = slot.ToString("D2");
+                bool hasData = (slot - 1) < tiedBibsSorted.Count;
 
                 if (hasData)
                 {
-                    string bibNo = playerNos[slot - 1];
-                    r10Map.TryGetValue(bibNo, out var r10Row);
+                    string bib = tiedBibsSorted[slot - 1];
+                    r10Display.TryGetValue(bib, out var d);
+                    var (colIdx, cell, rankDisp) = d;
 
-                    var colData = (r10Row?["列データ"] as JArray)?.OfType<JObject>().ToList()
-                        ?? new List<JObject>();
-                    var colDict = colData.ToDictionary(
-                        c => c["上位合計順位まで"]?.ToString() ?? "",
-                        c => c["合計数"]?.ToString() ?? "",
-                        StringComparer.Ordinal);
-                    string rankDisp = r10Row?["判定順位"]?.ToString() ?? "";
-
-                    SetTextObjectDirect(report, $"R10_{nn}_C00", bibNo, FastReport.BorderLines.All);
-                    for (int c = 0; c < colLabels.Length; c++)
+                    SetTextObjectDirect(report, $"R10_{nn}_C00", bib, FastReport.BorderLines.All);
+                    for (int c = 1; c <= 6; c++)
                     {
-                        string val = colDict.TryGetValue(colLabels[c], out var v) ? v : "";
-                        var obj = report.FindObject($"R10_{nn}_C{(c + 1):D2}") as FastReport.TextObject;
+                        var obj = report.FindObject($"R10_{nn}_C{c:D2}") as FastReport.TextObject;
                         if (obj != null)
                         {
-                            obj.Text = val; obj.Border.Lines = FastReport.BorderLines.All;
-                            obj.FillColor = !string.IsNullOrEmpty(val)
-                                ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                            bool isTarget = c == colIdx;
+                            obj.Text = isTarget ? cell : "";
+                            obj.Border.Lines = isTarget ? FastReport.BorderLines.All : FastReport.BorderLines.None;
+                            obj.FillColor = isTarget ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
                         }
                     }
-                    SetTextObjectDirect(report, $"R10_{nn}_C07",
-                        !string.IsNullOrEmpty(rankDisp) ? rankDisp : "", FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"R10_{nn}_C07", rankDisp, FastReport.BorderLines.All);
                 }
                 else
                 {
@@ -6435,11 +6504,28 @@ namespace DSPrt.印刷
                     }
                 }
             }
+        }
 
-            // ── 規定11検討: 対象者のみ（背番号順に詰めて表示） ─────────────
-            // r11Mapのキーは対象者のみ（規定11で確定した選手）
-            var r11Bibs = r11Map.Keys.ToList();
-            // 背番号数値昇順にソート
+        /// <summary>
+        /// 規定11 テーブル④（R11B）と テーブル⑤（R11C）をセットする。
+        /// R11B: 規定11対象者の全種目×全ジャッジ採点を横並びに表示（最大20列）。
+        /// R11C: 仮想単科競技として規定5〜7bを計算し確定規程・判定順位を表示。
+        /// </summary>
+        private static void SetSkatingR11BAndCRows(
+            Report report,
+            Dictionary<string, JObject> soGoMap,
+            List<JObject> soGoR11,
+            List<JObject> shomokuKekkaArr,
+            int maxR11Rows)
+        {
+            const int MaxJudgeCols = 20;
+
+            // 規定11対象者を特定（"同順位" または "規定11"）
+            var r11Bibs = soGoR11.Count > 0
+                ? soGoR11.Select(r => r["背番号"]?.ToString() ?? "").Where(b => !string.IsNullOrEmpty(b)).ToList()
+                : soGoMap.Values.Where(v => v["総合順位決定規定"]?.ToString() is "同順位" or "規定11")
+                    .Select(v => v["背番号"]?.ToString() ?? "").Where(b => !string.IsNullOrEmpty(b)).ToList();
+
             r11Bibs.Sort((a, b) =>
             {
                 bool aOk = int.TryParse(a, out int ai), bOk = int.TryParse(b, out int bi);
@@ -6447,49 +6533,325 @@ namespace DSPrt.印刷
                 return string.Compare(a, b, StringComparison.Ordinal);
             });
 
+            // 全種目×全ジャッジのカラム順序を構築（最初の対象者から取得）
+            var judgeEventCols = new List<(string dncCd, string jSym)>();
+            if (r11Bibs.Count > 0)
+            {
+                string firstBib = r11Bibs[0];
+                foreach (var dncResult in shomokuKekkaArr)
+                {
+                    string dncCd = dncResult["種目記号"]?.ToString() ?? "";
+                    var senshuArr = (dncResult["選手結果"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>();
+                    var senshu = senshuArr.FirstOrDefault(s => s["背番号"]?.ToString() == firstBib);
+                    if (senshu == null) senshu = senshuArr.FirstOrDefault();
+                    if (senshu == null) continue;
+                    foreach (var jd in (senshu["ジャッジ詳細結果"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                    {
+                        string sym = jd["ジャッジ記号"]?.ToString() ?? "";
+                        if (!string.IsNullOrEmpty(sym))
+                            judgeEventCols.Add((dncCd, sym));
+                    }
+                    if (judgeEventCols.Count >= MaxJudgeCols) break;
+                }
+                if (judgeEventCols.Count > MaxJudgeCols)
+                    judgeEventCols = judgeEventCols.Take(MaxJudgeCols).ToList();
+            }
+
+            // R11B タイトル・ヘッダーを非表示
+            SetTextObjectDirect(report, "R11B_Title", "", FastReport.BorderLines.None);
+            { var h = report.FindObject("R11B_H_C00") as FastReport.TextObject; if (h != null) { h.Text = ""; h.Border.Lines = FastReport.BorderLines.None; } }
+            for (int j = 1; j <= MaxJudgeCols; j++)
+            {
+                var obj = report.FindObject($"R11B_H_J{j:D2}") as FastReport.TextObject;
+                if (obj != null) { obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None; }
+            }
+
+            // 種目別の採点マップ: dncCd → (bib → (jSym → score))
+            var dncJudgeMap = new Dictionary<string, Dictionary<string, Dictionary<string, string>>>(StringComparer.Ordinal);
+            foreach (var dncResult in shomokuKekkaArr)
+            {
+                string dncCd = dncResult["種目記号"]?.ToString() ?? "";
+                if (string.IsNullOrEmpty(dncCd)) continue;
+                var bibMap = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+                foreach (var sk in (dncResult["選手結果"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                {
+                    string bib = sk["背番号"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(bib)) continue;
+                    var jMap = new Dictionary<string, string>(StringComparer.Ordinal);
+                    foreach (var jd in (sk["ジャッジ詳細結果"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                    {
+                        string sym = jd["ジャッジ記号"]?.ToString() ?? "";
+                        var rp = jd["順位点"]; var raw = jd["素点"];
+                        decimal vr = rp?.ToObject<decimal>() ?? 0m, vraw = raw?.ToObject<decimal>() ?? 0m;
+                        decimal v = vr != 0m ? vr : vraw;
+                        jMap[sym] = v == 0m ? "" : ((int)v).ToString();
+                    }
+                    bibMap[bib] = jMap;
+                }
+                dncJudgeMap[dncCd] = bibMap;
+            }
+
+            // R11B データ行をセット + 規定5〜7b 計算用の採点データを収集
+            var playerScoresForR11C = new List<(string bib, List<int> scores)>();
+
             for (int slot = 1; slot <= maxR11Rows; slot++)
             {
-                string nn      = slot.ToString("D2");
-                bool   hasData = (slot - 1) < r11Bibs.Count;
+                string nn = slot.ToString("D2");
+                bool hasData = (slot - 1) < r11Bibs.Count;
 
                 if (hasData)
                 {
-                    string bibNo = r11Bibs[slot - 1];
-                    r11Map.TryGetValue(bibNo, out var r11Row);
+                    string bib = r11Bibs[slot - 1];
+                    // R11B データ行は非表示・採点値は R11C 計算用に収集のみ
+                    SetTextObjectDirect(report, $"R11B_{nn}_C00", "", FastReport.BorderLines.None);
 
-                    var colData = (r11Row?["列データ"] as JArray)?.OfType<JObject>().ToList()
-                        ?? new List<JObject>();
-                    var colDict = colData.ToDictionary(
-                        c => c["上位合計順位まで"]?.ToString() ?? "",
-                        c => c["合計数"]?.ToString() ?? "",
-                        StringComparer.Ordinal);
-                    string rankDisp = r11Row?["判定順位"]?.ToString() ?? "";
-
-                    SetTextObjectDirect(report, $"R11_{nn}_C00", bibNo, FastReport.BorderLines.All);
-                    for (int c = 0; c < colLabels.Length; c++)
+                    var combinedScores = new List<int>();
+                    for (int j = 1; j <= MaxJudgeCols; j++)
                     {
-                        string val = colDict.TryGetValue(colLabels[c], out var v) ? v : "";
-                        var obj = report.FindObject($"R11_{nn}_C{(c + 1):D2}") as FastReport.TextObject;
-                        if (obj != null)
+                        var obj = report.FindObject($"R11B_{nn}_J{j:D2}") as FastReport.TextObject;
+                        if (obj == null) continue;
+                        bool hasCol = j <= judgeEventCols.Count;
+                        if (hasCol)
                         {
-                            obj.Text = val; obj.Border.Lines = FastReport.BorderLines.All;
-                            obj.FillColor = !string.IsNullOrEmpty(val)
-                                ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                            var (dncCd, jSym) = judgeEventCols[j - 1];
+                            string val = (dncJudgeMap.TryGetValue(dncCd, out var bm) && bm.TryGetValue(bib, out var jm) && jm.TryGetValue(jSym, out var sv))
+                                ? sv : "";
+                            obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None;
+                            if (int.TryParse(val, out int sv2)) combinedScores.Add(sv2);
+                        }
+                        else
+                        {
+                            obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None;
                         }
                     }
-                    SetTextObjectDirect(report, $"R11_{nn}_C07",
-                        !string.IsNullOrEmpty(rankDisp) ? rankDisp : "", FastReport.BorderLines.All);
+                    if (combinedScores.Count > 0)
+                        playerScoresForR11C.Add((bib, combinedScores));
                 }
                 else
                 {
-                    SetTextObjectDirect(report, $"R11_{nn}_C00", "", FastReport.BorderLines.None);
-                    for (int c = 1; c <= 7; c++)
+                    SetTextObjectDirect(report, $"R11B_{nn}_C00", "", FastReport.BorderLines.None);
+                    for (int j = 1; j <= MaxJudgeCols; j++)
                     {
-                        var obj = report.FindObject($"R11_{nn}_C{c:D2}") as FastReport.TextObject;
+                        var obj = report.FindObject($"R11B_{nn}_J{j:D2}") as FastReport.TextObject;
+                        if (obj != null) { obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None; }
+                    }
+                }
+            }
+
+            // R11C: 規定5〜7bを計算して結果を表示
+            var r11cResults = playerScoresForR11C.Count > 0
+                ? CalculateSingleEventSkatingRules5to7(playerScoresForR11C)
+                : new Dictionary<string, SkatingR11CResult>(StringComparer.Ordinal);
+
+            // サーバー提供の判定順位で上書き
+            var serverRankMap = soGoR11.ToDictionary(
+                r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+
+            for (int slot = 1; slot <= maxR11Rows; slot++)
+            {
+                string nn = slot.ToString("D2");
+                bool hasData = (slot - 1) < r11Bibs.Count;
+
+                if (hasData)
+                {
+                    string bib = r11Bibs[slot - 1];
+                    r11cResults.TryGetValue(bib, out var res);
+
+                    string r5val  = res.R5  > 0 ? res.R5.ToString()  : "";
+                    string r6val  = res.R6  > 0 ? res.R6.ToString()  : "";
+                    string r7aval = res.R7a > 0 ? res.R7a.ToString() : "";
+                    string r7bval = res.R7b > 0 ? res.R7b.ToString() : "";
+                    string kijoReg = res.ConfirmedRule ?? "";
+
+                    // サーバーの判定順位があれば優先使用
+                    string rankDisp = serverRankMap.TryGetValue(bib, out var sRow)
+                        ? sRow["判定順位"]?.ToString() ?? ""
+                        : (res.Rank > 0 ? res.Rank.ToString() : "");
+
+                    // 確定規程以降の不要な列はブランク
+                    bool r11ShowR6  = kijoReg is not ("規定5" or "規程5");
+                    bool r11ShowR7a = r11ShowR6  && kijoReg is not ("規定6" or "規程6");
+                    bool r11ShowR7b = r11ShowR7a && kijoReg is not ("規定7a" or "規程7a" or "規定7(a)" or "規程7(a)");
+
+                    SetTextObjectDirect(report, $"R11C_{nn}_C00", bib,    FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"R11C_{nn}_C01", r5val,  FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"R11C_{nn}_C02", r11ShowR6  ? r6val  : "", FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"R11C_{nn}_C03", r11ShowR7a ? r7aval : "", FastReport.BorderLines.All);
+                    SetTextObjectDirect(report, $"R11C_{nn}_C04", r11ShowR7b ? r7bval : "", FastReport.BorderLines.All);
+
+                    var c05 = report.FindObject($"R11C_{nn}_C05") as FastReport.TextObject;
+                    if (c05 != null) { c05.Text = kijoReg; c05.Border.Lines = FastReport.BorderLines.All; c05.FillColor = !string.IsNullOrEmpty(kijoReg) && kijoReg != "同順位" ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent; }
+                    SetTextObjectDirect(report, $"R11C_{nn}_C06", rankDisp, FastReport.BorderLines.All);
+                }
+                else
+                {
+                    for (int c = 0; c <= 6; c++)
+                    {
+                        var obj = report.FindObject($"R11C_{nn}_C{c:D2}") as FastReport.TextObject;
                         if (obj != null) { obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None; obj.FillColor = System.Drawing.Color.Transparent; }
                     }
                 }
             }
+        }
+
+        private struct SkatingR11CResult
+        {
+            public int R5, R6, R7a, R7b, Rank;
+            public string? ConfirmedRule;
+        }
+
+        /// <summary>選手ごとの種目順位リストを構築する。</summary>
+        private static Dictionary<string, List<int>> BuildPlayerRankLists(
+            List<JObject> shomokuKekkaArr, IEnumerable<string> playerBibs)
+        {
+            var result = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            foreach (var bib in playerBibs) result[bib] = new List<int>();
+            foreach (var dncResult in shomokuKekkaArr)
+            {
+                foreach (var sk in (dncResult["選手結果"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                {
+                    string bib = sk["背番号"]?.ToString() ?? "";
+                    int dncRank = sk["種目順位番号"]?.ToObject<int>() ?? 0;
+                    if (!string.IsNullOrEmpty(bib) && dncRank > 0 && result.ContainsKey(bib))
+                        result[bib].Add(dncRank);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 種目別順位の確定規程を、同一規定5グループ内の隣接選手との比較で再計算する。
+        /// サーバーデータはグループ内勝者に誤って「規定5」を返す場合があるため再計算が必要。
+        /// </summary>
+        private static Dictionary<string, string> ComputeSkatingConfirmedRules(
+            List<string> playerNos,
+            Dictionary<string, JObject> senshuMap)
+        {
+            var vals = new List<(string bib, int rank, int r5, int r6, int r7a, int r7b)>();
+            foreach (var bib in playerNos)
+            {
+                if (!senshuMap.TryGetValue(bib, out var sk)) continue;
+                int rank = sk["種目順位番号"]?.ToObject<int>() ?? 0;
+                if (rank == 0) continue;
+                JObject? d = sk["順位法詳細"] as JObject;
+                vals.Add((bib, rank,
+                    GetRuleIntValue(d, "規程5_過半数順位",          "規定5_過半数順位",          "規定5過半数"),
+                    GetRuleIntValue(d, "規程6_過半数以上の数",      "規定6_過半数以上の数",      "規定6多数決"),
+                    GetRuleIntValue(d, "規程7a_過半数以上の合計",   "規定7a_過半数以上の合計",   "規定7a上位加算"),
+                    GetRuleIntValue(d, "規程7b_過半数より下の合計", "規定7b_過半数より下の合計", "規定7b下位加算")));
+            }
+            vals.Sort((a, b) => a.rank.CompareTo(b.rank));
+
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            // 規定5でグループ化し、グループ内の隣接選手との最初の差異が確定規程
+            foreach (var grp in vals.GroupBy(v => v.r5))
+            {
+                var g = grp.OrderBy(v => v.rank).ToList();
+                for (int i = 0; i < g.Count; i++)
+                {
+                    var cur = g[i];
+                    if (g.Count == 1) { result[cur.bib] = "規定5"; continue; }
+
+                    // i=0 (グループ最上位) は直下との比較、それ以外は直上との比較
+                    var cmp = i == 0 ? g[1] : g[i - 1];
+
+                    if      (cur.r6  != cmp.r6)  result[cur.bib] = "規定6";
+                    else if (cur.r7a != cmp.r7a) result[cur.bib] = "規定7a";
+                    else if (cur.r7b != cmp.r7b) result[cur.bib] = "規定7b";
+                    else                          result[cur.bib] = "規定8";
+                }
+            }
+            return result;
+        }
+
+        private static int GetRuleIntValue(JObject? d, params string[] keys)
+        {
+            foreach (var key in keys)
+                if (d?[key] is JToken tok && int.TryParse(tok.ToString(), out int v)) return v;
+            return 0;
+        }
+
+        /// <summary>
+        /// 規定11の仮想単科競技に対して規定5〜7bを計算する。
+        /// R5=過半数順位、R6=過半数以上の数、R7a=過半数以上の合計、R7b=過半数より下の合計。
+        /// </summary>
+        private static Dictionary<string, SkatingR11CResult> CalculateSingleEventSkatingRules5to7(
+            List<(string bib, List<int> scores)> playerScores)
+        {
+            var results = new Dictionary<string, SkatingR11CResult>(StringComparer.Ordinal);
+            if (playerScores.Count == 0) return results;
+
+            int judgeCount = playerScores.Max(p => p.scores.Count);
+            int majority = judgeCount / 2 + 1;
+
+            var vals = playerScores.Select(p =>
+            {
+                var (bib, scores) = p;
+                int r5 = 0;
+                for (int t = 1; t <= judgeCount + playerScores.Count; t++)
+                {
+                    if (scores.Count(s => s <= t) >= majority) { r5 = t; break; }
+                }
+                int r6  = r5 > 0 ? scores.Count(s => s <= r5) : 0;
+                int r7a = r5 > 0 ? scores.Where(s => s <= r5).Sum() : 0;
+                int r7b = r5 > 0 ? scores.Where(s => s > r5).Sum() : 0;
+                return (bib, r5, r6, r7a, r7b);
+            }).ToList();
+
+            vals.Sort((a, b) =>
+            {
+                if (a.r5  != b.r5)  return a.r5.CompareTo(b.r5);
+                if (a.r6  != b.r6)  return b.r6.CompareTo(a.r6);
+                if (a.r7a != b.r7a) return a.r7a.CompareTo(b.r7a);
+                if (a.r7b != b.r7b) return a.r7b.CompareTo(b.r7b);
+                if (int.TryParse(a.bib, out int ai) && int.TryParse(b.bib, out int bi)) return ai.CompareTo(bi);
+                return string.Compare(a.bib, b.bib, StringComparison.Ordinal);
+            });
+
+            int curRank = 1;
+            for (int i = 0; i < vals.Count; i++)
+            {
+                if (i > 0)
+                {
+                    var prev = vals[i - 1]; var cur = vals[i];
+                    bool tied = prev.r5 == cur.r5 && prev.r6 == cur.r6 && prev.r7a == cur.r7a && prev.r7b == cur.r7b;
+                    if (!tied) curRank = i + 1;
+                }
+
+                var v = vals[i];
+                string kijoReg = "";
+                if (i > 0)
+                {
+                    var prev = vals[i - 1];
+                    if      (v.r5  != prev.r5)  kijoReg = "規定5";
+                    else if (v.r6  != prev.r6)  kijoReg = "規定6";
+                    else if (v.r7a != prev.r7a) kijoReg = "規定7a";
+                    else if (v.r7b != prev.r7b) kijoReg = "規定7b";
+                    else                         kijoReg = "同順位";
+                }
+                else
+                {
+                    // 1位の確定規程は2位との比較で決まる
+                    if (vals.Count > 1)
+                    {
+                        var next = vals[1];
+                        if      (v.r5  != next.r5)  kijoReg = "規定5";
+                        else if (v.r6  != next.r6)  kijoReg = "規定6";
+                        else if (v.r7a != next.r7a) kijoReg = "規定7a";
+                        else if (v.r7b != next.r7b) kijoReg = "規定7b";
+                        else                         kijoReg = "同順位";
+                    }
+                    else kijoReg = "規定5";
+                }
+
+                results[v.bib] = new SkatingR11CResult
+                {
+                    R5 = v.r5, R6 = v.r6, R7a = v.r7a, R7b = v.r7b,
+                    Rank = curRank, ConfirmedRule = kijoReg
+                };
+            }
+            return results;
         }
 
         /// <summary>
@@ -6505,6 +6867,9 @@ namespace DSPrt.印刷
             string suffix)
         {
             const int MaxJudges = 18;
+
+            // 確定規程を同一規定5グループ内の隣接選手比較から再計算
+            var computedKijoReg = ComputeSkatingConfirmedRules(playerNos, senshuMap);
 
             for (int slot = 1; slot <= pairsPerPage; slot++)
             {
@@ -6571,21 +6936,26 @@ namespace DSPrt.印刷
 
                     // 確定規程/規定 の取得（DBは「確定規程」キー）
                     string 確定規程 = rankhoBDetail?["確定規程"]?.ToString() ?? "";
-                    bool r5app  = 確定規程 != "" ? (確定規程 == "規定5"  || 確定規程 == "規程5")
-                                : rankhoBDetail?["規定5適用"]?.ToObject<bool>() ?? false;
-                    bool r6app  = 確定規程 != "" ? (確定規程 == "規定6"  || 確定規程 == "規程6")
-                                : rankhoBDetail?["規定6適用"]?.ToObject<bool>() ?? false;
-                    bool r7aapp = 確定規程 != "" ? (確定規程 == "規定7(a)" || 確定規程 == "規程7(a)" || 確定規程 == "規程7a")
-                                : rankhoBDetail?["規定7a適用"]?.ToObject<bool>() ?? false;
-                    bool r7bapp = 確定規程 != "" ? (確定規程 == "規定7(b)" || 確定規程 == "規程7(b)" || 確定規程 == "規程7b")
-                                : rankhoBDetail?["規定7b適用"]?.ToObject<bool>() ?? false;
-                    bool r8app  = 確定規程 != "" ? (確定規程 == "規定8"  || 確定規程 == "規程8")
-                                : rankhoBDetail?["規定8適用"]?.ToObject<bool>() ?? false;
-
                     // 判定テキスト（確定規程 または 旧形式の種目順位決定規定）
                     string jdgText = 確定規程 != ""
                         ? 確定規程
                         : sk?["種目順位決定規定"]?.ToString() ?? "";
+
+                    // 同一規定5グループ内比較で再計算した確定規程で上書き
+                    if (computedKijoReg.TryGetValue(bibNo, out var ckr) && !string.IsNullOrEmpty(ckr))
+                        jdgText = ckr;
+
+                    // jdgText 確定後にハイライトフラグを再設定
+                    bool r5app  = jdgText is "規定5"  or "規程5";
+                    bool r6app  = jdgText is "規定6"  or "規程6";
+                    bool r7aapp = jdgText is "規定7a" or "規定7(a)" or "規程7a" or "規程7(a)";
+                    bool r7bapp = jdgText is "規定7b" or "規定7(b)" or "規程7b" or "規程7(b)";
+                    bool r8app  = jdgText is "規定8"  or "規程8";
+
+                    // 確定規程以降の不要なセルをブランク
+                    bool skShowR6  = !r5app;
+                    bool skShowR7a = !r5app && !r6app;
+                    bool skShowR7b = !r5app && !r6app && !r7aapp;
 
                     // R5
                     {
@@ -6601,8 +6971,9 @@ namespace DSPrt.印刷
                         var obj = report.FindObject($"SK_{nn}_R6{suffix}") as FastReport.TextObject;
                         if (obj != null)
                         {
-                            obj.Text = r6val; obj.Border.Lines = FastReport.BorderLines.All;
-                            obj.FillColor = r6app ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                            obj.Text = skShowR6 ? r6val : "";
+                            obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = (skShowR6 && r6app) ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
                         }
                     }
                     // R7a
@@ -6610,8 +6981,9 @@ namespace DSPrt.印刷
                         var obj = report.FindObject($"SK_{nn}_R7a{suffix}") as FastReport.TextObject;
                         if (obj != null)
                         {
-                            obj.Text = r7aval; obj.Border.Lines = FastReport.BorderLines.All;
-                            obj.FillColor = r7aapp ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                            obj.Text = skShowR7a ? r7aval : "";
+                            obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = (skShowR7a && r7aapp) ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
                         }
                     }
                     // R7b
@@ -6619,18 +6991,15 @@ namespace DSPrt.印刷
                         var obj = report.FindObject($"SK_{nn}_R7b{suffix}") as FastReport.TextObject;
                         if (obj != null)
                         {
-                            obj.Text = r7bval; obj.Border.Lines = FastReport.BorderLines.All;
-                            obj.FillColor = r7bapp ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
+                            obj.Text = skShowR7b ? r7bval : "";
+                            obj.Border.Lines = FastReport.BorderLines.All;
+                            obj.FillColor = (skShowR7b && r7bapp) ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
                         }
                     }
-                    // R8
+                    // R8: 規定8は使用しないため非表示
                     {
                         var obj = report.FindObject($"SK_{nn}_R8{suffix}") as FastReport.TextObject;
-                        if (obj != null)
-                        {
-                            obj.Text = r8val; obj.Border.Lines = FastReport.BorderLines.All;
-                            obj.FillColor = r8app ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
-                        }
+                        if (obj != null) { obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None; obj.FillColor = System.Drawing.Color.Transparent; }
                     }
 
                     string rankVal = sk?["種目順位番号"]?.ToString() ?? "";
