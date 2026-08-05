@@ -5919,13 +5919,13 @@ namespace DSPrt.印刷
                 }
 
                 // ── Page1: 総合結果をセット ───────────────────────────────
-                SetSkatingTotalResultRows(report, playerNos, soGoMap, dsCodes, danceCount, PairsPerPage);
+                SetSkatingTotalResultRows(report, playerNos, soGoMap, soGoR11, dsCodes, danceCount, PairsPerPage);
 
                 // ── Page1: 種目別順位を総合結果に補完 ────────────────────
                 SetSkatingTotalDanceRanks(report, playerNos, shomokuKekkaArr, dsCodes, danceCount, PairsPerPage);
 
-                // ── Page1: 規定10検討（同点者のみ・count(sum)形式）──────────
-                SetSkatingR10Rows(report, playerNos, soGoMap, shomokuKekkaArr, PairsPerPage);
+                // ── Page1: 規定10検討（総合規定10検討を優先、古いデータは再計算）────
+                SetSkatingR10Rows(report, playerNos, soGoMap, soGoR10, shomokuKekkaArr, PairsPerPage);
 
                 // ── Page1: 規定11（再スケーティング）元データ・判定結果 ──────
                 SetSkatingR11BAndCRows(report, soGoMap, soGoR11, shomokuKekkaArr, MaxR11Rows);
@@ -6073,10 +6073,15 @@ namespace DSPrt.印刷
             Report report,
             List<string> playerNos,
             Dictionary<string, JObject> soGoMap,
+            List<JObject> soGoR11,
             string[] dsCodes,
             int danceCount,
             int pairsPerPage)
         {
+            var r11BibSet = new HashSet<string>(
+                soGoR11.Select(r => r["背番号"]?.ToString() ?? "").Where(b => !string.IsNullOrEmpty(b)),
+                StringComparer.Ordinal);
+
             // 種目記号ヘッダー（SR_H_C01〜C10）
             for (int i = 1; i <= 10; i++)
             {
@@ -6100,8 +6105,8 @@ namespace DSPrt.印刷
                     string totalPt  = result?["総合得点"]?.ToString()          ?? "";
                     string kijoReg  = result?["総合順位決定規定"]?.ToString()   ?? "";
                     string kijoVal  = result?["総合順位決定値"]?.ToString()     ?? "";
-                    // 仕様書第3章: 帳票では「規定11」と表示せず「同順位」と表示する
-                    if (kijoReg == "規定11") kijoReg = "同順位";
+                    if (r11BibSet.Contains(bibNo) && (kijoReg == "同順位" || kijoReg == "規定11" || string.IsNullOrEmpty(kijoReg)))
+                        kijoReg = "規定11";
 
                     SetTextObjectDirect(report, $"SR_{nn}_C00", bibNo, FastReport.BorderLines.All);
                     // C01〜C10 は種目別順位（後で SetSkatingTotalDanceRanks で補完）
@@ -6234,7 +6239,7 @@ namespace DSPrt.印刷
                 .ToList();
 
             // 順位・決定規定の割り当て（グループ単位で処理）
-            // 同一合計・同一規定10のグループは全員「同順位」（規定11 = 再スケーティング対象）
+            // 同一合計・同一規定10のグループは全員「規定11」（再スケーティング対象）
             var overallList = new List<JObject>();
             int rank = 1;
 
@@ -6257,8 +6262,8 @@ namespace DSPrt.印刷
 
                     if (isTiedGroup)
                     {
-                        // グループ全員「同順位」 = 規定11（再スケーティング）対象
-                        kijoReg = "同順位";
+                        // グループ全員「規定11」 = 再スケーティング対象
+                        kijoReg = "規定11";
                         kijoVal = "";
                     }
                     else if (i == 0)
@@ -6318,9 +6323,9 @@ namespace DSPrt.印刷
             var r10Players = new HashSet<string>(
                 overallList.Where(o => o["総合順位決定規定"]?.ToString() == "規定10").Select(o => o["背番号"]?.ToString() ?? ""),
                 StringComparer.Ordinal);
-            // 規定11（再スケーティング）対象: 同順位グループ全員
+            // 規定11（再スケーティング）対象: 規定11グループ全員
             var r11Players = new HashSet<string>(
-                overallList.Where(o => o["総合順位決定規定"]?.ToString() == "同順位").Select(o => o["背番号"]?.ToString() ?? ""),
+                overallList.Where(o => o["総合順位決定規定"]?.ToString() == "規定11").Select(o => o["背番号"]?.ToString() ?? ""),
                 StringComparer.Ordinal);
 
             // 規定10検討（全選手）
@@ -6385,86 +6390,88 @@ namespace DSPrt.印刷
         }
 
         /// <summary>
-        /// 規定10検討（R10）: 規定9同点グループのみ表示。
-        /// 各グループの目標順位 N のみ count(sum) 形式で1列に表示し、他列はブランク。
-        /// 全同点の場合は判定順位に「同点(再スケ)」と表示。
+        /// 規定10検討（R10）: サーバー提供の総合規定10検討を優先して表示する。
+        /// 古いデータ形式では総合結果から同点グループを再構成して表示する。
         /// </summary>
         private static void SetSkatingR10Rows(
             Report report,
             List<string> playerNos,
             Dictionary<string, JObject> soGoMap,
+            List<JObject> soGoR10,
             List<JObject> shomokuKekkaArr,
             int pairsPerPage)
         {
-            // 選手ごとの種目順位リスト
-            var rankLists = BuildPlayerRankLists(shomokuKekkaArr, playerNos);
+            var r10Rows = new List<(string bib, List<(string label, string value)> cols, string rank)>(pairsPerPage);
 
-            // 規定9同点グループ（同じ総合順位番号を持つ2名以上）
-            var tiedGroups = playerNos
-                .Where(b => soGoMap.ContainsKey(b))
-                .GroupBy(b => soGoMap[b]["総合順位番号"]?.ToObject<int>() ?? int.MaxValue)
-                .Where(g => g.Count() > 1)
-                .ToList();
-
-            var tiedBibSet = new HashSet<string>(tiedGroups.SelectMany(g => g), StringComparer.Ordinal);
-
-            // 各同点グループの R10 表示データ: bib → (colIdx, cellValue, rankDisp)
-            // colIdx: 1=C01("1"), 2=C02("1&2"), 3=C03("1-3"), 4=C04("1-4"), 5=C05("1-5"), 6=C06("1-6")
-            var r10Display = new Dictionary<string, (int colIdx, string cell, string rank)>(StringComparer.Ordinal);
-
-            foreach (var g in tiedGroups)
+            if (soGoR10.Count > 0)
             {
-                int targetRank = g.Key; // 同点グループの目標順位 N
-                int colIdx = Math.Clamp(targetRank, 1, 6);
-
-                var vals = g.Select(bib =>
+                var r10Map = soGoR10.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+                foreach (var bib in playerNos)
                 {
-                    var ranks = rankLists.TryGetValue(bib, out var rl) ? rl : new List<int>();
-                    int cnt = ranks.Count(r => r <= targetRank);
-                    int sum = ranks.Where(r => r <= targetRank).Sum();
-                    return (bib, cnt, sum);
-                }).ToList();
+                    if (!r10Map.TryGetValue(bib, out var row)) continue;
 
-                // 規定10a(cnt)降順 → 規定10b(sum)昇順 でソート
-                vals.Sort((a, b) =>
+                    var cols = new List<(string label, string value)>();
+                    foreach (var col in (row["列データ"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                    {
+                        string label = col["上位合計順位まで"]?.ToString() ?? "";
+                        string value = col["合計数"]?.Type == JTokenType.Null ? "" : col["合計数"]?.ToString() ?? "";
+                        cols.Add((label, value));
+                    }
+
+                    string rankDisp = row["判定順位"]?.ToString()
+                        ?? row["規定10判定順位"]?.ToString()
+                        ?? row["総合順位番号"]?.ToString()
+                        ?? "";
+
+                    r10Rows.Add((bib, cols, rankDisp));
+                }
+            }
+            else
+            {
+                var rankLists = BuildPlayerRankLists(shomokuKekkaArr, playerNos);
+                var totalGroups = playerNos
+                    .Where(b => soGoMap.ContainsKey(b))
+                    .GroupBy(b => soGoMap[b]["総合得点"]?.ToObject<decimal>() ?? decimal.MaxValue)
+                    .OrderBy(g => g.Min(b => soGoMap[b]["総合順位番号"]?.ToObject<int>() ?? int.MaxValue))
+                    .ToList();
+
+                foreach (var g in totalGroups)
                 {
-                    if (a.cnt != b.cnt) return b.cnt - a.cnt;
-                    return a.sum - b.sum;
-                });
+                    foreach (var bib in g.OrderBy(b => int.TryParse(b, out int bi) ? bi : int.MaxValue).ThenBy(b => b, StringComparer.Ordinal))
+                    {
+                        var ranks = rankLists.TryGetValue(bib, out var rl) ? rl : new List<int>();
+                        var cols = Enumerable.Range(1, Math.Min(6, ranks.Count))
+                            .Select(c =>
+                            {
+                                int cnt = ranks.Count(r => r <= c);
+                                int sum = ranks.Where(r => r <= c).Sum();
+                                string label = c == 1 ? "1" : c == 2 ? "1&2" : $"1-{c}";
+                                return (label, cnt > 0 ? $"{cnt}({sum})" : "");
+                            })
+                            .ToList();
 
-                bool isTied = vals.Count > 1
-                    && vals[0].cnt == vals[^1].cnt
-                    && vals[0].sum == vals[^1].sum;
-
-                int baseRank = targetRank;
-                for (int i = 0; i < vals.Count; i++)
-                {
-                    var (bib, cnt, sum) = vals[i];
-                    string cell = $"{cnt}({sum})";
-                    string rankDisp = isTied ? "同点(再スケ)"
-                        : (baseRank + i).ToString();
-                    r10Display[bib] = (colIdx, cell, rankDisp);
+                        string rankDisp = soGoMap.TryGetValue(bib, out var ov) && ov["総合順位決定規定"]?.ToString() == "規定10"
+                            ? (ov["総合順位番号"]?.ToString() ?? "")
+                            : "";
+                        r10Rows.Add((bib, cols, rankDisp));
+                    }
                 }
             }
 
-            // 表示: 同点者のみ背番号昇順で詰めて表示
-            var tiedBibsSorted = tiedBibSet.ToList();
-            tiedBibsSorted.Sort((a, b) =>
+            var columnLabels = new[] { "", "1", "1&2", "1-3", "1-4", "1-5", "1-6" };
+            var usedCols = new bool[7];
+            foreach (var row in r10Rows)
             {
-                bool aOk = int.TryParse(a, out int ai), bOk = int.TryParse(b, out int bi);
-                if (aOk && bOk) return ai.CompareTo(bi);
-                return string.Compare(a, b, StringComparison.Ordinal);
-            });
+                for (int i = 0; i < Math.Min(6, row.cols.Count); i++)
+                    usedCols[i + 1] = true;
+            }
 
-            // 使用する colIdx のみヘッダーを表示し、未使用列は非表示
-            var usedColIdxs = tiedGroups.Select(g => Math.Clamp(g.Key, 1, 6)).Distinct().ToHashSet();
-            string[] r10ColHdrs = { "", "1位以内", "1&2位以内", "1-3位以内", "1-4位以内", "1-5位以内", "1-6位以内" };
             for (int c = 1; c <= 6; c++)
             {
                 var hdr = report.FindObject($"R10_H_C{c:D2}") as FastReport.TextObject;
                 if (hdr == null) continue;
-                bool active = usedColIdxs.Contains(c);
-                hdr.Text = active ? r10ColHdrs[c] : "";
+                bool active = usedCols[c];
+                hdr.Text = active ? columnLabels[c] : "";
                 hdr.Border.Lines = active ? FastReport.BorderLines.All : FastReport.BorderLines.None;
                 hdr.FillColor = active ? System.Drawing.Color.White : System.Drawing.Color.Transparent;
             }
@@ -6472,27 +6479,28 @@ namespace DSPrt.印刷
             for (int slot = 1; slot <= pairsPerPage; slot++)
             {
                 string nn = slot.ToString("D2");
-                bool hasData = (slot - 1) < tiedBibsSorted.Count;
+                bool hasData = (slot - 1) < r10Rows.Count;
 
                 if (hasData)
                 {
-                    string bib = tiedBibsSorted[slot - 1];
-                    r10Display.TryGetValue(bib, out var d);
-                    var (colIdx, cell, rankDisp) = d;
+                    var row = r10Rows[slot - 1];
+                    SetTextObjectDirect(report, $"R10_{nn}_C00", row.bib, FastReport.BorderLines.All);
 
-                    SetTextObjectDirect(report, $"R10_{nn}_C00", bib, FastReport.BorderLines.All);
                     for (int c = 1; c <= 6; c++)
                     {
                         var obj = report.FindObject($"R10_{nn}_C{c:D2}") as FastReport.TextObject;
-                        if (obj != null)
-                        {
-                            bool isTarget = c == colIdx;
-                            obj.Text = isTarget ? cell : "";
-                            obj.Border.Lines = isTarget ? FastReport.BorderLines.All : FastReport.BorderLines.None;
-                            obj.FillColor = isTarget ? System.Drawing.Color.Yellow : System.Drawing.Color.Transparent;
-                        }
+                        if (obj == null) continue;
+
+                        bool active = c <= row.cols.Count;
+                        string value = active ? row.cols[c - 1].value : "";
+                        obj.Text = value;
+                        obj.Border.Lines = active ? FastReport.BorderLines.All : FastReport.BorderLines.None;
+                        obj.FillColor = active && !string.IsNullOrEmpty(value)
+                            ? System.Drawing.Color.Yellow
+                            : System.Drawing.Color.Transparent;
                     }
-                    SetTextObjectDirect(report, $"R10_{nn}_C07", rankDisp, FastReport.BorderLines.All);
+
+                    SetTextObjectDirect(report, $"R10_{nn}_C07", row.rank, FastReport.BorderLines.All);
                 }
                 else
                 {
@@ -6500,7 +6508,12 @@ namespace DSPrt.印刷
                     for (int c = 1; c <= 7; c++)
                     {
                         var obj = report.FindObject($"R10_{nn}_C{c:D2}") as FastReport.TextObject;
-                        if (obj != null) { obj.Text = ""; obj.Border.Lines = FastReport.BorderLines.None; obj.FillColor = System.Drawing.Color.Transparent; }
+                        if (obj != null)
+                        {
+                            obj.Text = "";
+                            obj.Border.Lines = FastReport.BorderLines.None;
+                            obj.FillColor = System.Drawing.Color.Transparent;
+                        }
                     }
                 }
             }
@@ -6663,10 +6676,15 @@ namespace DSPrt.印刷
                     string r7bval = res.R7b > 0 ? res.R7b.ToString() : "";
                     string kijoReg = res.ConfirmedRule ?? "";
 
-                    // サーバーの判定順位があれば優先使用
-                    string rankDisp = serverRankMap.TryGetValue(bib, out var sRow)
-                        ? sRow["判定順位"]?.ToString() ?? ""
-                        : (res.Rank > 0 ? res.Rank.ToString() : "");
+                    // サーバーの判定順位があれば優先使用。空なら再計算値へフォールバックする。
+                    string rankDisp = "";
+                    if (serverRankMap.TryGetValue(bib, out var sRow))
+                        rankDisp = sRow["判定順位"]?.ToString()
+                                ?? sRow["規定11判定順位"]?.ToString()
+                                ?? sRow["総合順位番号"]?.ToString()
+                                ?? "";
+                    if (string.IsNullOrEmpty(rankDisp) && res.Rank > 0)
+                        rankDisp = res.Rank.ToString();
 
                     // 確定規程以降の不要な列はブランク
                     bool r11ShowR6  = kijoReg is not ("規定5" or "規程5");
