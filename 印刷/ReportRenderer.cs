@@ -5700,7 +5700,7 @@ namespace DSPrt.印刷
         {
             const int PairsPerPage = 20;
             const int MaxR11Rows   = 6;
-            const int MaxJudges    = 13;
+            const int MaxJudges    = 18;
             const int MaxDances    = 10;
 
             try
@@ -5867,6 +5867,27 @@ namespace DSPrt.印刷
                 var r10Map = soGoR10.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
                 // 規定11検討: 背番号 → 検討行（対象者のみ）
                 var r11Map = soGoR11.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+
+                // ── 古いデータ向けフォールバック：規定9〜11・検討表をリアルタイム再計算 ─
+                // 総合規定10検討 が空（古いデータ形式）の場合、種目結果から再計算する
+                if (soGoR10.Count == 0 && shomokuKekkaArr.Count > 0)
+                {
+                    _log.LogAdd("[ReportRenderer] 総合規定10検討が空のため、種目結果から規定9〜11を再計算します", _log.INFO);
+                    (soGoR10, soGoR11, soGoMap, r10Map, r11Map) =
+                        RecalcOverallSkating(shomokuKekkaArr, playerNos);
+                    // 総合結果の決定規定・決定値も補完する
+                    foreach (var bib in playerNos)
+                    {
+                        if (soGoMap.TryGetValue(bib, out var newRow) && soGoKekka.FirstOrDefault(r => r["背番号"]?.ToString() == bib) is JObject origRow)
+                        {
+                            if (string.IsNullOrEmpty(origRow["総合順位決定規定"]?.ToString()))
+                            {
+                                origRow["総合順位決定規定"] = newRow["総合順位決定規定"];
+                                origRow["総合順位決定値"]   = newRow["総合順位決定値"];
+                            }
+                        }
+                    }
+                }
 
                 // ── 種目ページ数（種目数）の確定 ─────────────────────────
                 int dancePagesCount = Math.Max(1, danceCount);
@@ -6138,6 +6159,225 @@ namespace DSPrt.印刷
         }
 
         /// <summary>
+        /// 古いデータ形式（総合規定10検討が空）の場合に、種目結果から規定9〜11の総合結果を再計算する。
+        /// SkatingMethodAggregator.CalculateOverallResults に相当するロジックを DSPrt 内で実装。
+        ///
+        /// スケーティングルール（規定9〜11）:
+        ///   規定9  : 全種目順位の合計点（小さいほど上位）
+        ///   規定10 : 合計点が同じ場合、1位以内・1&2位以内・... の種目数（多いほど上位）で比較
+        ///   規定11 : 規定10でも区別できない場合は再スケーティングを実施（同順位グループ全員が対象）
+        /// </summary>
+        private static (
+            List<JObject> r10List,
+            List<JObject> r11List,
+            Dictionary<string, JObject> soGoMap,
+            Dictionary<string, JObject> r10Map,
+            Dictionary<string, JObject> r11Map
+        ) RecalcOverallSkating(List<JObject> shomokuKekkaArr, List<string> playerNos)
+        {
+            // 各選手の種目順位リストを収集
+            var playerRankLists = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            foreach (var bib in playerNos)
+                playerRankLists[bib] = new List<int>();
+
+            foreach (var dncResult in shomokuKekkaArr)
+            {
+                foreach (var sk in (dncResult["選手結果"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                {
+                    string bib     = sk["背番号"]?.ToString() ?? "";
+                    int dncRank    = sk["種目順位番号"]?.ToObject<int>() ?? 0;
+                    if (!string.IsNullOrEmpty(bib) && dncRank > 0 && playerRankLists.ContainsKey(bib))
+                        playerRankLists[bib].Add(dncRank);
+                }
+            }
+
+            int numDances = shomokuKekkaArr.Count;
+
+            // 各選手のスコアを計算
+            // 規定9 = 全種目順位の合計点（total）
+            // 規定10比較用 = 1位以内・2位以内... の種目数リスト（長さ = numDances）
+            var scores = new List<(string bib, int total, List<int> rankCounts, List<int> sorted)>();
+            foreach (var bib in playerNos)
+            {
+                var ranks = playerRankLists.TryGetValue(bib, out var rl) ? rl : new List<int>();
+                if (ranks.Count < numDances) continue;
+                var sorted = ranks.OrderBy(r => r).ToList();
+                int total  = sorted.Sum();
+                // rankCounts[i] = (i+1)位以内の種目数
+                var rankCounts = Enumerable.Range(1, numDances)
+                    .Select(upTo => sorted.Count(r => r <= upTo))
+                    .ToList();
+                scores.Add((bib, total, rankCounts, sorted));
+            }
+
+            // ソート: 規定9（合計点）昇順 → 規定10（上位票数）降順（lexicographic）→ 背番号
+            scores = scores
+                .OrderBy(s => s.total)
+                .ThenBy(s => s, Comparer<(string, int, List<int>, List<int>)>.Create((a, b) =>
+                {
+                    // 規定10: 1位から順に票数の多い方が上位
+                    for (int i = 0; i < a.Item3.Count && i < b.Item3.Count; i++)
+                    {
+                        int diff = b.Item3[i] - a.Item3[i]; // 降順（多い方が上位）
+                        if (diff != 0) return diff;
+                    }
+                    return 0;
+                }))
+                .ThenBy(s => int.TryParse(s.bib, out int bi) ? bi : int.MaxValue)
+                .ToList();
+
+            // 順位・決定規定の割り当て（グループ単位で処理）
+            // 同一合計・同一規定10のグループは全員「同順位」（規定11 = 再スケーティング対象）
+            var overallList = new List<JObject>();
+            int rank = 1;
+
+            for (int i = 0; i < scores.Count; )
+            {
+                // 同順位グループの末尾を探す
+                int j = i;
+                while (j + 1 < scores.Count
+                    && scores[j + 1].total == scores[i].total
+                    && RankCountsEqual(scores[j + 1].rankCounts, scores[i].rankCounts))
+                    j++;
+
+                bool isTiedGroup = (j > i); // 2人以上が完全同点 → 規定11（再スケーティング）
+
+                for (int k = i; k <= j; k++)
+                {
+                    var cur = scores[k];
+                    string kijoReg;
+                    string kijoVal;
+
+                    if (isTiedGroup)
+                    {
+                        // グループ全員「同順位」 = 規定11（再スケーティング）対象
+                        kijoReg = "同順位";
+                        kijoVal = "";
+                    }
+                    else if (i == 0)
+                    {
+                        // 先頭かつ単独 → 規定9
+                        kijoReg = "規定9";
+                        kijoVal = cur.total.ToString();
+                    }
+                    else
+                    {
+                        // 直前グループとの比較で確定規定を決定
+                        var prevFirst = scores[i - 1];
+                        if (cur.total != prevFirst.total)
+                        {
+                            kijoReg = "規定9";
+                            kijoVal = cur.total.ToString();
+                        }
+                        else
+                        {
+                            // 合計同じ → 規定10のどこで差がついたか
+                            kijoReg = "規定10";
+                            kijoVal = "";
+                            for (int c2 = 0; c2 < cur.rankCounts.Count; c2++)
+                            {
+                                if (cur.rankCounts[c2] != prevFirst.rankCounts[c2])
+                                {
+                                    kijoVal = cur.rankCounts[c2].ToString();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    overallList.Add(new JObject
+                    {
+                        ["背番号"]           = cur.bib,
+                        ["総合順位番号"]     = rank,
+                        ["総合順位表記"]     = $"{rank}位",
+                        ["総合得点"]         = cur.total,
+                        ["総合順位決定規定"] = kijoReg,
+                        ["総合順位決定値"]   = kijoVal
+                    });
+                }
+
+                rank = j + 2; // 次グループの順位 = (グループ末尾インデックス + 1) + 1
+                i = j + 1;
+            }
+
+            var soGoMap = overallList.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+
+            // 検討列ラベルを生成（1, 1&2, 1-3, ...）
+            var colLabels = new List<string>();
+            for (int c = 1; c <= numDances; c++)
+                colLabels.Add(c == 1 ? "1" : c == 2 ? "1&2" : $"1-{c}");
+
+            // 規定10で決着がついた選手（合計同点グループ内で規定10に到達した選手）
+            var r10Players = new HashSet<string>(
+                overallList.Where(o => o["総合順位決定規定"]?.ToString() == "規定10").Select(o => o["背番号"]?.ToString() ?? ""),
+                StringComparer.Ordinal);
+            // 規定11（再スケーティング）対象: 同順位グループ全員
+            var r11Players = new HashSet<string>(
+                overallList.Where(o => o["総合順位決定規定"]?.ToString() == "同順位").Select(o => o["背番号"]?.ToString() ?? ""),
+                StringComparer.Ordinal);
+
+            // 規定10検討（全選手）
+            var r10List = new List<JObject>();
+            foreach (var s in scores)
+            {
+                var colArr = new JArray();
+                for (int c = 0; c < colLabels.Count; c++)
+                {
+                    int count = s.rankCounts[c];
+                    colArr.Add(new JObject
+                    {
+                        ["上位合計順位まで"] = colLabels[c],
+                        ["合計数"]           = (JToken)count  // 常に表示（0も含む）
+                    });
+                }
+                r10List.Add(new JObject
+                {
+                    ["背番号"]   = s.bib,
+                    ["判定順位"] = r10Players.Contains(s.bib)
+                        ? (soGoMap.TryGetValue(s.bib, out var ov) ? ov["総合順位番号"] : JValue.CreateNull())
+                        : JValue.CreateNull(),
+                    ["列データ"] = colArr
+                });
+            }
+
+            // 規定11検討（同順位グループ = 再スケーティング対象者のみ）
+            var r11List = new List<JObject>();
+            foreach (var s in scores.Where(s => r11Players.Contains(s.bib)))
+            {
+                var colArr = new JArray();
+                for (int c = 0; c < colLabels.Count; c++)
+                {
+                    int count = s.rankCounts[c];
+                    colArr.Add(new JObject
+                    {
+                        ["上位合計順位まで"] = colLabels[c],
+                        ["合計数"]           = (JToken)count
+                    });
+                }
+                r11List.Add(new JObject
+                {
+                    ["背番号"]   = s.bib,
+                    ["判定順位"] = soGoMap.TryGetValue(s.bib, out var ov2) ? ov2["総合順位番号"] : JValue.CreateNull(),
+                    ["列データ"] = colArr
+                });
+            }
+
+            var r10Map = r10List.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+            var r11Map = r11List.ToDictionary(r => r["背番号"]?.ToString() ?? "", r => r, StringComparer.Ordinal);
+
+            return (r10List, r11List, soGoMap, r10Map, r11Map);
+        }
+
+        /// <summary>規定10比較用票数リストが全要素一致するか判定。</summary>
+        private static bool RankCountsEqual(List<int> a, List<int> b)
+        {
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+                if (a[i] != b[i]) return false;
+            return true;
+        }
+
+        /// <summary>
         /// Page1 規定10検討行（R10_{nn}_C00〜C07）と規定11検討行（R11_{nn}_C00〜C07）をセットする。
         /// R10: 全選手対象（pairsPerPage行）。R11: 対象者のみ（maxR11Rows行）。
         /// </summary>
@@ -6264,7 +6504,7 @@ namespace DSPrt.印刷
             int pairsPerPage,
             string suffix)
         {
-            const int MaxJudges = 13;
+            const int MaxJudges = 18;
 
             for (int slot = 1; slot <= pairsPerPage; slot++)
             {
@@ -6311,30 +6551,35 @@ namespace DSPrt.印刷
                     // 順位法詳細
                     JObject? rankhoBDetail = sk?["順位法詳細"] as JObject;
 
-                    // 新形式（実DB）: 規定5_過半数順位, 確定規程 等
-                    // 旧形式（テスト）: 規定5過半数, 規定5適用 等
-                    // どちらにも対応する
-                    string r5val  = rankhoBDetail?["規定5_過半数順位"]?.ToString()
+                    // DBキー名は「規程」（ていけい）、新フォーマット仕様では「規定」（きてい）
+                    // 旧形式（テストデータ）: 規定5過半数, 規定5適用 等
+                    // いずれにも対応する
+                    string r5val  = rankhoBDetail?["規程5_過半数順位"]?.ToString()
+                                 ?? rankhoBDetail?["規定5_過半数順位"]?.ToString()
                                  ?? rankhoBDetail?["規定5過半数"]?.ToString() ?? "";
-                    string r6val  = rankhoBDetail?["規定6_過半数以上の数"]?.ToString()
+                    string r6val  = rankhoBDetail?["規程6_過半数以上の数"]?.ToString()
+                                 ?? rankhoBDetail?["規定6_過半数以上の数"]?.ToString()
                                  ?? rankhoBDetail?["規定6多数決"]?.ToString() ?? "";
-                    string r7aval = rankhoBDetail?["規定7a_過半数以上の合計"]?.ToString()
+                    string r7aval = rankhoBDetail?["規程7a_過半数以上の合計"]?.ToString()
+                                 ?? rankhoBDetail?["規定7a_過半数以上の合計"]?.ToString()
                                  ?? rankhoBDetail?["規定7a上位加算"]?.ToString() ?? "";
-                    string r7bval = rankhoBDetail?["規定7b_過半数より下の合計"]?.ToString()
+                    string r7bval = rankhoBDetail?["規程7b_過半数より下の合計"]?.ToString()
+                                 ?? rankhoBDetail?["規定7b_過半数より下の合計"]?.ToString()
                                  ?? rankhoBDetail?["規定7b下位加算"]?.ToString() ?? "";
-                    string r8val  = rankhoBDetail?["規定8繰り上げ"]?.ToString() ?? "";
+                    string r8val  = rankhoBDetail?["規程8繰り上げ"]?.ToString()
+                                 ?? rankhoBDetail?["規定8繰り上げ"]?.ToString() ?? "";
 
-                    // 確定規定による適用フラグ（新形式優先）
+                    // 確定規程/規定 の取得（DBは「確定規程」キー）
                     string 確定規程 = rankhoBDetail?["確定規程"]?.ToString() ?? "";
-                    bool r5app  = 確定規程 != "" ? 確定規程 == "規定5"
+                    bool r5app  = 確定規程 != "" ? (確定規程 == "規定5"  || 確定規程 == "規程5")
                                 : rankhoBDetail?["規定5適用"]?.ToObject<bool>() ?? false;
-                    bool r6app  = 確定規程 != "" ? 確定規程 == "規定6"
+                    bool r6app  = 確定規程 != "" ? (確定規程 == "規定6"  || 確定規程 == "規程6")
                                 : rankhoBDetail?["規定6適用"]?.ToObject<bool>() ?? false;
-                    bool r7aapp = 確定規程 != "" ? 確定規程 == "規定7(a)"
+                    bool r7aapp = 確定規程 != "" ? (確定規程 == "規定7(a)" || 確定規程 == "規程7(a)" || 確定規程 == "規程7a")
                                 : rankhoBDetail?["規定7a適用"]?.ToObject<bool>() ?? false;
-                    bool r7bapp = 確定規程 != "" ? 確定規程 == "規定7(b)"
+                    bool r7bapp = 確定規程 != "" ? (確定規程 == "規定7(b)" || 確定規程 == "規程7(b)" || 確定規程 == "規程7b")
                                 : rankhoBDetail?["規定7b適用"]?.ToObject<bool>() ?? false;
-                    bool r8app  = 確定規程 != "" ? 確定規程 == "規定8"
+                    bool r8app  = 確定規程 != "" ? (確定規程 == "規定8"  || 確定規程 == "規程8")
                                 : rankhoBDetail?["規定8適用"]?.ToObject<bool>() ?? false;
 
                     // 判定テキスト（確定規程 または 旧形式の種目順位決定規定）
