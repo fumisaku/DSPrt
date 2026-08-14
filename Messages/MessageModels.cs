@@ -79,6 +79,7 @@ namespace DSPrt.Messages
         public string LayoutId { get; set; } = string.Empty;
         public int Copies { get; set; } = 1;
         public int Priority { get; set; } = 2;
+        public List<string> TargetBibNos { get; set; } = new List<string>();
         /// <summary>DV_Result 等の JSON データ（空の場合はキャッシュを参照）</summary>
         public JsonNode? Data { get; set; }
     }

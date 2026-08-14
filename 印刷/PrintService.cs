@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DSPrt.Data;
+using DSPrt.賞状;
 
 namespace DSPrt.印刷
 {
@@ -16,6 +17,7 @@ namespace DSPrt.印刷
         private readonly ReportLayoutRegistry _registry;
         private readonly ReportRenderer _renderer;
         private readonly PrinterController _printerController;
+        private readonly AwardService _awardService;
         private bool _isDisposed;
 
         // ─── イベント ────────────────────────────────────────────────
@@ -38,6 +40,7 @@ namespace DSPrt.印刷
             _registry        = new ReportLayoutRegistry(log);
             _renderer        = new ReportRenderer(log, dataManager);
             _printerController = new PrinterController(log);
+            _awardService    = new AwardService(log, dataManager, _printerController);
 
             _queue = new PrintJobQueue(log, AppSettings.Instance.PrintSettings.MaxQueueSize);
             _queue.ProcessJob      += OnProcessJobAsync;
@@ -88,6 +91,7 @@ namespace DSPrt.印刷
 
         /// <summary>プリンターコントローラー（設定タブ用）</summary>
         public PrinterController PrinterController => _printerController;
+        public AwardService AwardService => _awardService;
 
         /// <summary>
         /// プリンター名を指定して直接印刷する（テスト印刷・プリンター選択ダイアログ向け）。
@@ -95,6 +99,12 @@ namespace DSPrt.印刷
         /// </summary>
         public async Task PrintDirectAsync(PrintJob job, string printerName)
         {
+            if (string.Equals(job.LayoutId, AwardService.AwardLayoutId, StringComparison.OrdinalIgnoreCase))
+            {
+                await Task.Run(() => _awardService.PrintTest(_awardService.LoadCurrentLayout(), printerName));
+                return;
+            }
+
             var layout = _registry.Get(job.LayoutId);
             if (layout == null)
             {
@@ -110,6 +120,11 @@ namespace DSPrt.印刷
         /// </summary>
         public async Task<string?> ExportHtmlAsync(PrintJob job, string outputDir)
         {
+            if (string.Equals(job.LayoutId, AwardService.AwardLayoutId, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
             var layout = _registry.Get(job.LayoutId);
             if (layout == null)
             {
@@ -132,6 +147,26 @@ namespace DSPrt.印刷
 
         private async Task OnProcessJobAsync(PrintJob job)
         {
+            if (string.Equals(job.LayoutId, AwardService.AwardLayoutId, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var application = System.Windows.Application.Current;
+                    if (application == null)
+                        throw new InvalidOperationException("Application.Current が取得できません。");
+
+                    await application.Dispatcher.InvokeAsync(() => _awardService.PrintAwardJob(job));
+                    PrintDone?.Invoke(this, new PrintDoneEventArgs(job.JobId, "done", null));
+                }
+                catch (Exception ex)
+                {
+                    _log.LogAdd($"[PrintService] 賞状印刷失敗: jobId={job.JobId}, error={ex.Message}", _log.ERR);
+                    PrintDone?.Invoke(this, new PrintDoneEventArgs(job.JobId, "error", ex.Message));
+                    throw;
+                }
+                return;
+            }
+
             var layout = _registry.Get(job.LayoutId);
             if (layout == null)
             {

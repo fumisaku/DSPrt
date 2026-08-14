@@ -147,8 +147,8 @@ JS,20001,DSPrt_Award,PR_ACK,{"jobId":"20001_RSLT_001","status":"accepted"}
 
 | 方向 | コマンド | タイミング | 説明 |
 |------|---------|-----------|------|
-| GM → SVR | `GM_PRT_PRINT` | 印刷ボタン押下 | GM からの印刷指示 / `targetInstanceId, jobId, layoutId, copies, priority, data{}` |
-| SVR → PRT | `PR_PRINT` | GM_PRT_PRINT 受信後 | 指定 DSPrt へ転送 / `jobId, layoutId, copies, priority, data{}` |
+| GM → SVR | `GM_PRT_PRINT` | 印刷ボタン押下 | GM からの印刷指示 / `targetInstanceId, jobId, layoutId, copies, priority, targetBibNos?, data{}` |
+| SVR → PRT | `PR_PRINT` | GM_PRT_PRINT 受信後 | 指定 DSPrt へ転送 / `jobId, layoutId, copies, priority, targetBibNos?, data{}` |
 | SVR → PRT | `PR_CANCEL` | キャンセル時 | 印刷ジョブキャンセル / `jobId` |
 | PRT → SVR | `PR_ACK` | PR_PRINT 受信直後 | 印刷受付確認 / `jobId, status="accepted"` |
 | PRT → SVR | `PR_DONE` | 印刷完了時 | 印刷完了通知 / `jobId, status="done"\|"error", message` |
@@ -159,11 +159,12 @@ JS,20001,DSPrt_Award,PR_ACK,{"jobId":"20001_RSLT_001","status":"accepted"}
 
 ```json
 {
-  "jobId":    "20001_AWARD_20250720183045_001",
-  "layoutId": "AWARD_CERTIFICATE",
-  "copies":   1,
-  "priority": 1,
-  "data":     { /* DV_Result 構造 */ }
+  "jobId":        "20001_AWARD_20250720183045_001",
+  "layoutId":     "AWARD_CERTIFICATE",
+  "copies":       1,
+  "priority":     1,
+  "targetBibNos": ["101", "102"],
+  "data":         { /* DV_Result 構造 */ }
 }
 ```
 
@@ -193,11 +194,18 @@ JS,20001,DSPrt_Award,PR_ACK,{"jobId":"20001_RSLT_001","status":"accepted"}
 | フィールド | 型 | 説明 |
 |-----------|---|------|
 | `jobId` | string | ユニークジョブ ID（重複受信対策。省略不可） |
-| `layoutId` | string | DSPrt 側の `DSPrt.json` で管理する帳票 ID |
+| `layoutId` | string | DSPrt 側の `DSPrt.json` で管理する帳票 ID。賞状印刷では識別用の固定値 `AWARD_CERTIFICATE` を使用し、実際の賞状レイアウトは DSPrt 側既定設定を参照する |
 | `copies` | int | 印刷部数（省略時は `DSPrt.json` の設定値を使用） |
 | `priority` | int | 優先度: `1`=高 / `2`=通常 / `3`=低 |
+| `targetBibNos` | string[] | 賞状印刷時のみ使用する任意項目。未指定または空配列時は全対象を印刷し、指定時は一致する背番号のみ印刷する |
 | `data` | object | DV_Result 構造の JSON（後述 4-4-③） |
 
+> **賞状印刷の特記事項:**
+> - `layoutId = "AWARD_CERTIFICATE"` は賞状印刷ジョブの識別用固定値として扱う
+> - サーバーは賞状用の個別レイアウトファイル名を送らない
+> - DSPrt はローカル設定された既定賞状レイアウトを使用して印刷する
+> - 特定選手のみ再印刷する場合でも、サーバーは `DV_Result` 全体を送信し、`targetBibNos` で対象背番号を指定する
+>
 > **DA_Master / DS_Status を使う帳票**（エントリーリスト・ヒート表等）を印刷する場合は、
 > `data` フィールドは **空オブジェクト `{}`** を送り、DSPrt がキャッシュから取得する。
 > ただし DA_Master 帳票の印刷指示では `layoutId` だけで DSPrt は何を使うか判断できる。
@@ -383,13 +391,15 @@ JS,20001,DSPrt_Award,PR_ACK,{"jobId":"20001_RSLT_001","status":"accepted"}
       "総合順位番号": 1,
       "背番号":     "101",
       "総合得点":    95.6,
-      "総合順位表記": "1"
+      "総合順位表記": "1",
+      "開始順位":    7
     },
     {
       "総合順位番号": 2,
       "背番号":     "102",
       "総合得点":    93.2,
-      "総合順位表記": "2"
+      "総合順位表記": "2",
+      "開始順位":    7
     }
   ],
   "種目結果": [
@@ -424,16 +434,22 @@ JS,20001,DSPrt_Award,PR_ACK,{"jobId":"20001_RSLT_001","status":"accepted"}
 }
 ```
 
+> 表彰状の下位決勝順位補正が必要な場合、`総合結果[]` 各行に開始順位を含める。
+> DSPrt は `賞状開始順位` → `開始順位` → `基準順位` → `BaseRank` の優先順で参照し、
+> 最初に取得できた正の整数値を賞状用の開始順位として扱う。
+> 例: 下位決勝1位を 7 位として印字したい場合は `開始順位 = 7` を送る。
+
 **主な利用帳票:**
 
 | layoutId | 帳票名 | 使用する主なフィールド |
 |----------|--------|----------------------|
 | `RESULT_A4` | 結果帳票（総合） | `区分名`, `ラウンド名`, `総合結果` |
 | `RESULT_DETAIL_A4` | 結果帳票（種目別詳細） | `種目結果`, `選手結果`, `ジャッジ詳細結果` |
-| `AWARD_CERTIFICATE` | 表彰状 | `区分名`, `ラウンド名`, `総合結果[0]`（1位のみ） |
+| `AWARD_CERTIFICATE` | 表彰状 | `区分名`, `ラウンド名`, `総合結果`, `targetBibNos` |
 
-> **表彰状の場合:** 1 名（1 組）ごとに 1 ジョブとして送るか、`総合結果` 配列の全要素を
-> 1 ジョブで送って帳票側でページを繰り返すかは運用設計で決める。
+> **表彰状の場合:** `DV_Result` は 1 ジョブで送信し、DSPrt 側で `総合結果` 配列をもとに必要枚数へ展開する。
+> 特定選手のみ再印刷する場合は、`DV_Result` 自体は絞り込まず、`targetBibNos` に対象背番号を指定して DSPrt 側で抽出する。
+> 下位決勝順位を厳密に制御する場合は、`総合結果[]` に開始順位項目を付与する。
 
 ---
 

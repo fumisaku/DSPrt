@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Controls;
+using System.Windows.Media;
 using DSPrt.印刷;
 using DSPrt.Messages;
+using DSPrt.賞状;
+using static DSPrt.賞状.AwardDisplayNames;
 
 namespace DSPrt
 {
@@ -14,8 +19,8 @@ namespace DSPrt
     /// </summary>
     public partial class MainWindow : Window
     {
-        private DSPrtClient?    _client;
-        private PrintService?   _printService;
+        private DSPrtClient? _client;
+        private PrintService? _printService;
         private readonly object _logLock = new object();
         private const int MaxLogLines = 500;
 
@@ -25,15 +30,21 @@ namespace DSPrt
 
         // プレビュー
         private JobLogItem? _previewTargetJob;
-        private string?     _lastHtmlPath;
+        private string? _lastHtmlPath;
         private const string PreviewSpoolDir = "./Spool/Preview";
+
+        // 賞状
+        private AwardLayout _awardLayout = new AwardLayout();
+        private string? _awardLayoutPath;
+        private bool _updatingAwardUi;
+        private readonly ObservableCollection<AwardRankRow> _awardRankRows = new();
 
         public MainWindow()
         {
             InitializeComponent();
             JobLogGrid.ItemsSource = _jobLog;
             JobLogGrid.SelectionChanged += JobLogGrid_SelectionChanged;
-            Loaded  += MainWindow_Loaded;
+            Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
         }
 
@@ -42,12 +53,12 @@ namespace DSPrt
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             var ws = AppSettings.Instance.WebSocketSettings;
-            Title           = $"DSPrt - {ws.DisplayName}（{ws.InstanceId}）";
+            Title = $"DSPrt - {ws.DisplayName}（{ws.InstanceId}）";
             TxtServerInfo.Text = $"{ws.ServerIpAddress}:{ws.ServerPort}";
             AddLog($"DSPrt 起動: instanceId={ws.InstanceId}, server={ws.ServerIpAddress}:{ws.ServerPort}");
 
-            // 起動時から帳票設定タブに一覧を表示（サーバー接続不要）
             RefreshLayoutTab();
+            InitializeAwardTab();
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -78,16 +89,14 @@ namespace DSPrt
                 SetConnectionUi(connecting: true);
                 AddLog("接続中...");
 
-                // PrintService 初期化（DataManager より前に必要な依存はないのでここで作成）
-                // ただし DataManager は DSPrtClient が持つため、先に Client を作る
                 _client = new DSPrtClient();
-                _client.Log.LogOutput                += AddLog;
-                _client.ConnectionStateChanged       += OnConnectionStateChanged;
-                _client.DA_MasterReceived            += (s, args) => AddLog("DA_Master 受信完了");
-                _client.DS_StatusReceived            += (s, args) => AddLog("DS_Status 受信完了");
-                _client.PrintJobRequested            += OnPrintJobRequested;
-                _client.PrintJobCancelRequested      += OnPrintJobCancelRequested;
-                _client.CompetitionSelector          = OnSelectCompetitionAsync;
+                _client.Log.LogOutput += AddLog;
+                _client.ConnectionStateChanged += OnConnectionStateChanged;
+                _client.DA_MasterReceived += (s, args) => AddLog("DA_Master 受信完了");
+                _client.DS_StatusReceived += (s, args) => AddLog("DS_Status 受信完了");
+                _client.PrintJobRequested += OnPrintJobRequested;
+                _client.PrintJobCancelRequested += OnPrintJobCancelRequested;
+                _client.CompetitionSelector = OnSelectCompetitionAsync;
 
                 bool connected = await _client.ConnectAsync();
                 if (!connected)
@@ -99,13 +108,12 @@ namespace DSPrt
                     return;
                 }
 
-                // PrintService を DataManager の後（ConnectAsync 後）に初期化
                 _printService = new PrintService(_client.Log, _client.DataManager);
                 _printService.JobStatusChanged += OnJobStatusChanged;
-                _printService.PrintDone        += OnPrintDone;
+                _printService.PrintDone += OnPrintDone;
 
-                // 帳票設定タブ更新
                 RefreshLayoutTab();
+                InitializeAwardTab();
 
                 AddLog("接続成功 — 初期化シーケンス開始");
                 bool initialized = await _client.InitializeAsync();
@@ -172,34 +180,30 @@ namespace DSPrt
 
         private async void OnPrintJobRequested(object? sender, Handlers.PrintJobRequestedEventArgs e)
         {
-            var req = e.Job;  // PR_PRINT_Request
+            var req = e.Job;
             AddLog($"印刷ジョブ受信: jobId={req.JobId}, layoutId={req.LayoutId}, copies={req.Copies}");
 
-            // PR_ACK 送信
             if (_client != null)
             {
                 bool acked = await _client.SendAckAsync(req.JobId);
                 AddLog(acked ? $"PR_ACK 送信: {req.JobId}" : $"PR_ACK 送信失敗: {req.JobId}");
             }
 
-            // PR_PRINT_Request → PrintJob 変換
             var job = new PrintJob
             {
-                JobId    = req.JobId,
+                JobId = req.JobId,
                 LayoutId = req.LayoutId,
-                Copies   = req.Copies,
+                Copies = req.Copies,
                 Priority = req.Priority,
-                Data     = req.Data
+                TargetBibNos = new List<string>(req.TargetBibNos),
+                Data = req.Data
             };
 
-            // ── [診断ログ] bib=20・種目C・Eジャッジの素点を受信データから確認 ──
             try
             {
                 if (req.Data != null)
                 {
-                    var dataStr  = req.Data.ToJsonString();
-
-                    // 受信データをファイルに保存（種目C bib=20 関連のデバッグ用）
+                    var dataStr = req.Data.ToJsonString();
                     try
                     {
                         string diagPath = System.IO.Path.Combine(
@@ -208,47 +212,13 @@ namespace DSPrt
                         AddLog($"[診断] 受信Data保存: {diagPath}");
                     }
                     catch { }
-
-                    var dataObj  = Newtonsoft.Json.Linq.JObject.Parse(dataStr);
-                    var shomokuArr = dataObj["種目結果"] as Newtonsoft.Json.Linq.JArray;
-                    if (shomokuArr != null)
-                    {
-                        foreach (var shomoku in shomokuArr.OfType<Newtonsoft.Json.Linq.JObject>())
-                        {
-                            if (shomoku["種目記号"]?.ToString() != "C") continue;
-                            var senshu = shomoku["選手結果"] as Newtonsoft.Json.Linq.JArray;
-                            if (senshu == null) break;
-                            foreach (var sk in senshu.OfType<Newtonsoft.Json.Linq.JObject>())
-                            {
-                                if (sk["背番号"]?.ToString() != "20") continue;
-                                var judges = sk["ジャッジ詳細結果"] as Newtonsoft.Json.Linq.JArray;
-                                if (judges == null) break;
-                                // 素点の型情報も含めて出力
-                                var scores = string.Join(", ", judges.OfType<Newtonsoft.Json.Linq.JObject>()
-                                    .Select(j => $"{j["ジャッジ記号"]}={j["素点"]}(type={j["素点"]?.Type})"));
-                                AddLog($"[診断] 受信Data: 種目C・bib=20 ジャッジ詳細 → {scores}");
-                                break;
-                            }
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        AddLog($"[診断] 受信Data: 種目結果 キーなし (keys={string.Join(",", dataObj.Properties().Select(p => p.Name).Take(10))})");
-                    }
-                }
-                else
-                {
-                    AddLog("[診断] 受信Data: null");
                 }
             }
             catch (Exception diagEx)
             {
                 AddLog($"[診断] 受信Data 解析エラー: {diagEx.Message}");
             }
-            // ── [診断ログ] ここまで ──
 
-            // 印刷キューに追加
             if (_printService != null)
             {
                 bool queued = _printService.Enqueue(job);
@@ -270,24 +240,20 @@ namespace DSPrt
         {
             Dispatcher.Invoke(() =>
             {
-                var job  = e.Job;
+                var job = e.Job;
                 var item = _jobLog.FirstOrDefault(x => x.JobId == job.JobId);
                 if (item != null)
                 {
-                    item.Status      = job.Status;
+                    item.Status = job.Status;
                     item.CompletedAt = job.CompletedAt;
-                    item.ErrorMessage= job.ErrorMessage;
-                    // DataGrid に変更を通知するため、アイテムを削除・再追加（ObservableCollection のトリック）
+                    item.ErrorMessage = job.ErrorMessage;
                     int idx = _jobLog.IndexOf(item);
                     _jobLog.RemoveAt(idx);
                     _jobLog.Insert(idx, item);
                 }
                 else
                 {
-                    // 新規ジョブ
                     _jobLog.Insert(0, new JobLogItem(job));
-
-                    // 上限超過時に古いものを削除
                     while (_jobLog.Count > JobLogMaxCount)
                         _jobLog.RemoveAt(_jobLog.Count - 1);
                 }
@@ -299,7 +265,6 @@ namespace DSPrt
         {
             AddLog($"印刷{(e.Status == "done" ? "完了" : "エラー")}: jobId={e.JobId}{(e.Message != null ? $", msg={e.Message}" : "")}");
 
-            // PR_DONE 送信
             if (_client != null)
             {
                 bool sent = await _client.SendDoneAsync(e.JobId, e.Status, e.Message);
@@ -312,13 +277,11 @@ namespace DSPrt
 
         private void JobLogGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            // 完了またはエラーのジョブが選択されていれば再印刷ボタンを有効化
             bool canReprint = JobLogGrid.SelectedItems
                 .Cast<JobLogItem>()
                 .Any(item => item.Status == PrintJobStatus.Done || item.Status == PrintJobStatus.Error);
             BtnReprint.IsEnabled = canReprint;
 
-            // プレビュー対象を更新
             var single = JobLogGrid.SelectedItems.Count == 1
                 ? JobLogGrid.SelectedItems.Cast<JobLogItem>().First()
                 : null;
@@ -361,6 +324,13 @@ namespace DSPrt
 
             try
             {
+                if (string.Equals(_previewTargetJob.OriginalJob.LayoutId, AwardService.AwardLayoutId, StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show("賞状ジョブのプレビューは賞状タブで確認してください。",
+                        "賞状プレビュー", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
                 string? htmlPath = await _printService.ExportHtmlAsync(
                     _previewTargetJob.OriginalJob,
                     PreviewSpoolDir);
@@ -395,7 +365,7 @@ namespace DSPrt
             if (_lastHtmlPath == null || !System.IO.File.Exists(_lastHtmlPath)) return;
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName        = _lastHtmlPath,
+                FileName = _lastHtmlPath,
                 UseShellExecute = true
             });
         }
@@ -406,26 +376,22 @@ namespace DSPrt
         {
             Dispatcher.Invoke(() =>
             {
-                // デフォルトプリンター（PrintService があれば実プリンター名、なければ設定値を表示）
                 TxtDefaultPrinter.Text = _printService != null
                     ? _printService.PrinterController.GetDefaultPrinterName()
                     : AppSettings.Instance.PrintSettings.DefaultPrinterName;
 
-                // レイアウト一覧（PrintService がなくても AppSettings から直接表示）
                 LayoutGrid.ItemsSource = _printService != null
                     ? _printService.Registry.All.ToList()
                     : AppSettings.Instance.Layouts;
             });
         }
 
-        // ─── 帳票設定タブ（デザイナー関連）────────────────────────────
-
         private void LayoutGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             bool hasSelection = LayoutGrid.SelectedItem is LayoutSetting;
-            BtnOpenDesigner.IsEnabled       = hasSelection;
-            BtnTestPrint.IsEnabled          = hasSelection;
-            BtnTestPreview.IsEnabled        = hasSelection;
+            BtnOpenDesigner.IsEnabled = hasSelection;
+            BtnTestPrint.IsEnabled = hasSelection;
+            BtnTestPreview.IsEnabled = hasSelection;
             BtnChangeLayoutPrinter.IsEnabled = hasSelection;
         }
 
@@ -448,7 +414,7 @@ namespace DSPrt
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName        = frxPath,
+                    FileName = frxPath,
                     UseShellExecute = true
                 });
             }
@@ -462,11 +428,6 @@ namespace DSPrt
             }
         }
 
-        // ─── プリンター変更 ──────────────────────────────────────────
-
-        /// <summary>
-        /// デフォルトプリンターの変更（DSPrt.json の PrintSettings.DefaultPrinterName を更新）
-        /// </summary>
         private void BtnChangeDefaultPrinter_Click(object sender, RoutedEventArgs e)
         {
             var selected = ShowPrinterSelectDialog("デフォルトプリンターを選択してください");
@@ -478,9 +439,6 @@ namespace DSPrt
             AddLog($"デフォルトプリンター変更: {selected}");
         }
 
-        /// <summary>
-        /// 選択レイアウトのプリンター変更（DSPrt.json の該当 Layout.PrinterName を更新）
-        /// </summary>
         private void BtnChangeLayoutPrinter_Click(object sender, RoutedEventArgs e)
         {
             if (LayoutGrid.SelectedItem is not LayoutSetting layout) return;
@@ -488,28 +446,20 @@ namespace DSPrt
             var selected = ShowPrinterSelectDialog($"「{layout.LayoutId}」のプリンターを選択してください");
             if (selected == null) return;
 
-            // 実行中 PrintService の Registry を更新
             _printService?.Registry.UpdatePrinterName(layout.LayoutId, selected);
 
-            // AppSettings 経由で DSPrt.json に保存
             var appLayout = AppSettings.Instance.Layouts
                 .Find(l => string.Equals(l.LayoutId, layout.LayoutId, StringComparison.OrdinalIgnoreCase));
             if (appLayout != null)
                 appLayout.PrinterName = selected;
             AppSettings.Save();
 
-            // DataGrid を再描画
             RefreshLayoutTab();
             AddLog($"プリンター変更: layoutId={layout.LayoutId}, printer={selected}");
         }
 
-        /// <summary>
-        /// WPF の PrintDialog を使ってプリンターを選択させ、選択されたプリンター名を返す。
-        /// キャンセル時は null を返す。
-        /// </summary>
         private string? ShowPrinterSelectDialog(string description)
         {
-            // WPF PrintDialog でプリンター一覧を表示
             var dlg = new System.Windows.Controls.PrintDialog();
             if (dlg.ShowDialog() != true) return null;
             return dlg.PrintQueue.FullName;
@@ -522,7 +472,7 @@ namespace DSPrt
             System.IO.Directory.CreateDirectory(reportsDir);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName        = reportsDir,
+                FileName = reportsDir,
                 UseShellExecute = true
             });
         }
@@ -543,44 +493,40 @@ namespace DSPrt
 
         private async Task RunTestJobAsync(LayoutSetting layout, bool previewOnly)
         {
-            // --- PrintService をスタンドアロンで初期化（未接続でも動作） ---
             LOG_C log;
             DSPrt.Data.DataManager dm;
             PrintService svc;
 
             if (_printService != null && _client != null)
             {
-                // 接続中の場合はそのまま使用
                 log = _client.Log;
-                dm  = _client.DataManager;
+                dm = _client.DataManager;
                 svc = _printService;
             }
             else
             {
-                // 未接続の場合: ログ・DataManager・PrintService をローカルで作成
                 log = new LOG_C();
                 log.SetLogLevel(AppSettings.Instance.LogSettings.LogLevel);
                 log.CreateFile(AppSettings.Instance.LogSettings.LogPath);
                 log.LogOutput += AddLog;
-                dm  = new DSPrt.Data.DataManager(log);
+                dm = new DSPrt.Data.DataManager(log);
                 svc = new PrintService(log, dm);
             }
 
             try
             {
-                BtnTestPrint.IsEnabled   = false;
+                BtnTestPrint.IsEnabled = false;
                 BtnTestPreview.IsEnabled = false;
 
-                // --- テストデータ JSON の選択 ---
                 string testDataDir = System.IO.Path.GetFullPath(
                     System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", "TestData"));
 
                 var dlg = new Microsoft.Win32.OpenFileDialog
                 {
-                    Title            = $"テストデータを選択 — {layout.LayoutId}",
+                    Title = $"テストデータを選択 — {layout.LayoutId}",
                     InitialDirectory = System.IO.Directory.Exists(testDataDir) ? testDataDir : null,
-                    Filter           = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
-                    FileName         = $"PR_PRINT_{layout.LayoutId}_テスト.json"
+                    Filter = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+                    FileName = $"PR_PRINT_{layout.LayoutId}_テスト.json"
                 };
 
                 if (dlg.ShowDialog() != true)
@@ -589,108 +535,84 @@ namespace DSPrt
                     return;
                 }
 
-                // --- JSON 読み込み ---
                 string jsonText = System.IO.File.ReadAllText(dlg.FileName, System.Text.Encoding.UTF8);
                 var jsonDoc = System.Text.Json.JsonDocument.Parse(jsonText);
-                var root    = jsonDoc.RootElement;
+                var root = jsonDoc.RootElement;
 
-                string jobId    = root.TryGetProperty("jobId",    out var jid)  ? jid.GetString()  ?? $"TEST_{DateTime.Now:yyyyMMddHHmmss}" : $"TEST_{DateTime.Now:yyyyMMddHHmmss}";
-                string layoutId = root.TryGetProperty("layoutId", out var lid)  ? lid.GetString()  ?? layout.LayoutId : layout.LayoutId;
-                int    copies   = previewOnly ? 0 : (root.TryGetProperty("copies",   out var cpy)  ? cpy.GetInt32() : 1);
+                string jobId = root.TryGetProperty("jobId", out var jid) ? jid.GetString() ?? $"TEST_{DateTime.Now:yyyyMMddHHmmss}" : $"TEST_{DateTime.Now:yyyyMMddHHmmss}";
+                string layoutId = root.TryGetProperty("layoutId", out var lid) ? lid.GetString() ?? layout.LayoutId : layout.LayoutId;
+                int copies = previewOnly ? 0 : (root.TryGetProperty("copies", out var cpy) ? cpy.GetInt32() : 1);
 
-                // data フィールド（null の場合は DataManager キャッシュを使用するため null のまま渡す）
                 System.Text.Json.Nodes.JsonNode? dataNode = null;
                 if (root.TryGetProperty("data", out var dataProp) && dataProp.ValueKind != System.Text.Json.JsonValueKind.Null)
                 {
                     dataNode = System.Text.Json.Nodes.JsonNode.Parse(dataProp.GetRawText());
                 }
 
-                // DA_Master / DS_Status が必要な帳票でキャッシュが未ロードの場合はファイル選択で読み込む
-                // 条件: DA_Master または DS_Status を使う dataType かつキャッシュが空
-                // ※ PLAYER_NOTICE_HORIZONTAL_A4 のように data に別途パラメーターが入る帳票も対象にする
                 bool needsDaMaster = layout.DataType.Contains("DA_Master", StringComparison.OrdinalIgnoreCase);
                 bool needsDsStatus = layout.DataType.Contains("DS_Status", StringComparison.OrdinalIgnoreCase);
 
                 if ((needsDaMaster && dm.DA_Master == null) || (needsDsStatus && dm.DS_Status == null))
                 {
-                    // DA_Master の選択
                     if (needsDaMaster && dm.DA_Master == null)
                     {
                         var daDlg = new Microsoft.Win32.OpenFileDialog
                         {
-                            Title            = "DA_Master.json を選択してください",
+                            Title = "DA_Master.json を選択してください",
                             InitialDirectory = System.IO.Path.GetDirectoryName(dlg.FileName),
-                            Filter           = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
-                            FileName         = "DA_Master.json"
+                            Filter = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+                            FileName = "DA_Master.json"
                         };
                         if (daDlg.ShowDialog() == true)
                         {
                             dm.SetDA_Master(System.IO.File.ReadAllText(daDlg.FileName, System.Text.Encoding.UTF8));
                             AddLog($"DA_Master ロード: {daDlg.FileName}");
                         }
-                        else
-                        {
-                            AddLog("DA_Master の選択がキャンセルされました。空データで続行します。");
-                        }
                     }
 
-                    // DS_Status の選択
                     if (needsDsStatus && dm.DS_Status == null)
                     {
                         var dsDlg = new Microsoft.Win32.OpenFileDialog
                         {
-                            Title            = "DS_Status.json を選択してください",
+                            Title = "DS_Status.json を選択してください",
                             InitialDirectory = System.IO.Path.GetDirectoryName(dlg.FileName),
-                            Filter           = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
-                            FileName         = "DS_Status.json"
+                            Filter = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+                            FileName = "DS_Status.json"
                         };
                         if (dsDlg.ShowDialog() == true)
                         {
                             dm.SetDS_Status(System.IO.File.ReadAllText(dsDlg.FileName, System.Text.Encoding.UTF8));
                             AddLog($"DS_Status ロード: {dsDlg.FileName}");
                         }
-                        else
-                        {
-                            AddLog("DS_Status の選択がキャンセルされました。空データで続行します。");
-                        }
                     }
                 }
 
                 var job = new PrintJob
                 {
-                    JobId    = jobId,
+                    JobId = jobId,
                     LayoutId = layoutId,
-                    Copies   = copies,
+                    Copies = copies,
                     Priority = 1,
-                    Data     = dataNode
+                    Data = dataNode
                 };
 
                 if (previewOnly)
                 {
-                    // --- プレビュー ---
                     AddLog($"プレビュー生成開始: jobId={jobId}, layoutId={layoutId}");
                     string? htmlPath = await svc.ExportHtmlAsync(job, PreviewSpoolDir);
                     if (htmlPath != null)
                     {
-                        // 相対パスを絶対パスに変換してから Uri に渡す（相対パスのまま UriKind.Absolute を指定すると例外）
                         string absoluteHtmlPath = System.IO.Path.GetFullPath(htmlPath);
                         _lastHtmlPath = absoluteHtmlPath;
                         BtnOpenHtml.IsEnabled = true;
                         PreviewBrowser.Navigate(new Uri(absoluteHtmlPath, UriKind.Absolute));
                         AddLog($"プレビュー完了: {absoluteHtmlPath}");
-                        // プレビュータブに切り替え
-                        if (MainTabControl.SelectedIndex != 2)
-                            MainTabControl.SelectedIndex = 2;
-                    }
-                    else
-                    {
-                        MessageBox.Show("プレビューの生成に失敗しました。接続ログを確認してください。",
-                            "プレビュー失敗", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        if (MainTabControl.SelectedIndex != 3)
+                            MainTabControl.SelectedIndex = 3;
                     }
                 }
                 else
                 {
-                    // --- 印刷: WPF PrintDialog でプリンターを選択して直接印刷 ---
                     var printDialog = new System.Windows.Controls.PrintDialog();
                     if (printDialog.ShowDialog() != true)
                     {
@@ -712,11 +634,10 @@ namespace DSPrt
             finally
             {
                 bool hasSel = LayoutGrid.SelectedItem is LayoutSetting;
-                BtnTestPrint.IsEnabled           = hasSel;
-                BtnTestPreview.IsEnabled         = hasSel;
+                BtnTestPrint.IsEnabled = hasSel;
+                BtnTestPreview.IsEnabled = hasSel;
                 BtnChangeLayoutPrinter.IsEnabled = hasSel;
 
-                // ローカル作成した場合のみ Dispose
                 if (_printService == null || _client == null)
                 {
                     svc.Dispose();
@@ -729,6 +650,310 @@ namespace DSPrt
             if (System.IO.Path.IsPathRooted(frxPath)) return frxPath;
             return System.IO.Path.GetFullPath(
                 System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, frxPath));
+        }
+
+        // ─── 賞状タブ ────────────────────────────────────────────────
+
+        private void InitializeAwardTab()
+        {
+            _updatingAwardUi = true;
+            CmbAwardPaperSize.ItemsSource = Enum.GetValues(typeof(AwardPaperSize)).Cast<AwardPaperSize>().Select(CreateOption).ToList();
+            CmbAwardOrientation.ItemsSource = Enum.GetValues(typeof(AwardOrientation)).Cast<AwardOrientation>().Select(CreateOption).ToList();
+            CmbAwardNamePrintMode.ItemsSource = Enum.GetValues(typeof(AwardNamePrintMode)).Cast<AwardNamePrintMode>().Select(CreateOption).ToList();
+            CmbAwardSemiFinalRankMode.ItemsSource = Enum.GetValues(typeof(AwardSemiFinalRankMode)).Cast<AwardSemiFinalRankMode>().Select(CreateOption).ToList();
+            CmbAwardTextAlign.ItemsSource = Enum.GetValues(typeof(AwardTextAlign)).Cast<AwardTextAlign>().Select(CreateOption).ToList();
+            CmbAwardOverflowMode.ItemsSource = Enum.GetValues(typeof(AwardOverflowMode)).Cast<AwardOverflowMode>().Select(CreateOption).ToList();
+            CmbAwardPaperSize.DisplayMemberPath = nameof(AwardOption<AwardPaperSize>.Label);
+            CmbAwardOrientation.DisplayMemberPath = nameof(AwardOption<AwardOrientation>.Label);
+            CmbAwardNamePrintMode.DisplayMemberPath = nameof(AwardOption<AwardNamePrintMode>.Label);
+            CmbAwardSemiFinalRankMode.DisplayMemberPath = nameof(AwardOption<AwardSemiFinalRankMode>.Label);
+            CmbAwardTextAlign.DisplayMemberPath = nameof(AwardOption<AwardTextAlign>.Label);
+            CmbAwardOverflowMode.DisplayMemberPath = nameof(AwardOption<AwardOverflowMode>.Label);
+            AwardRankTextGrid.ItemsSource = _awardRankRows;
+            LoadAwardLayout();
+            _updatingAwardUi = false;
+        }
+
+        private void LoadAwardLayout(string? path = null)
+        {
+            var repository = _printService?.AwardService.Repository ?? new AwardLayoutRepository();
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                _awardLayout = repository.Load(path);
+                _awardLayoutPath = path;
+            }
+            else if (!string.IsNullOrWhiteSpace(AppSettings.Instance.PrintSettings.AwardLayoutPath))
+            {
+                string resolved = repository.ResolvePath(AppSettings.Instance.PrintSettings.AwardLayoutPath);
+                if (System.IO.File.Exists(resolved))
+                {
+                    _awardLayout = repository.Load(resolved);
+                    _awardLayoutPath = resolved;
+                }
+                else
+                {
+                    _awardLayout = new AwardLayout();
+                    _awardLayoutPath = null;
+                }
+            }
+            else
+            {
+                _awardLayout = new AwardLayout();
+                _awardLayoutPath = null;
+            }
+
+            RefreshAwardUi();
+        }
+
+        private void RefreshAwardUi()
+        {
+            _updatingAwardUi = true;
+            TxtAwardLayoutName.Text = _awardLayout.LayoutName;
+            SelectAwardOption(CmbAwardPaperSize, _awardLayout.PaperSize);
+            SelectAwardOption(CmbAwardOrientation, _awardLayout.Orientation);
+            TxtAwardMeshSize.Text = _awardLayout.MeshSizeMm.ToString();
+            SelectAwardOption(CmbAwardNamePrintMode, _awardLayout.NamePrintMode);
+            ChkAwardSurnameSingle.IsChecked = _awardLayout.SurnameSinglePrintEnabled;
+            TxtAwardMinimumFontSize.Text = _awardLayout.MinimumAutoFontSizePt.ToString("0.##");
+            SelectAwardOption(CmbAwardSemiFinalRankMode, _awardLayout.SemiFinalRankMode);
+            TxtAwardSemiFinalText.Text = _awardLayout.SemiFinalText;
+            LstAwardItems.ItemsSource = _awardLayout.Items;
+            if (LstAwardItems.SelectedItem == null && _awardLayout.Items.Count > 0)
+                LstAwardItems.SelectedIndex = 0;
+            TxtAwardLayoutPath.Text = _awardLayoutPath ?? "未保存";
+            RefreshAwardRankRows();
+            UpdateAwardItemEditor();
+            RenderAwardPreview();
+            _updatingAwardUi = false;
+        }
+
+        private void UpdateAwardItemEditor()
+        {
+            if (LstAwardItems.SelectedItem is not AwardLayoutItem item)
+            {
+                ChkAwardItemEnabled.IsChecked = false;
+                TxtAwardItemText.Text = string.Empty;
+                TxtAwardX.Text = string.Empty;
+                TxtAwardY.Text = string.Empty;
+                TxtAwardWidth.Text = string.Empty;
+                TxtAwardFontSize.Text = string.Empty;
+                return;
+            }
+
+            ChkAwardItemEnabled.IsChecked = item.Enabled;
+            ChkAwardItemCentered.IsChecked = item.Centered;
+            ChkAwardItemBold.IsChecked = item.Bold;
+            SelectAwardOption(CmbAwardTextAlign, item.TextAlign);
+            SelectAwardOption(CmbAwardOverflowMode, item.OverflowMode);
+            TxtAwardItemText.Text = item.Text;
+            TxtAwardX.Text = item.XMm.ToString("0.##");
+            TxtAwardY.Text = item.YMm.ToString("0.##");
+            TxtAwardWidth.Text = item.WidthMm.ToString("0.##");
+            TxtAwardFontFamily.Text = item.FontFamily;
+            TxtAwardFontSize.Text = item.FontSizePt.ToString("0.##");
+            TxtAwardLineSpacing.Text = item.LineSpacingMm.ToString("0.##");
+        }
+
+        private void RenderAwardPreview()
+        {
+            try
+            {
+                var service = _printService?.AwardService ?? CreateStandaloneAwardService();
+                AwardPreviewHost.Content = service.BuildPreview(_awardLayout);
+            }
+            catch (Exception ex)
+            {
+                AwardPreviewHost.Content = new TextBlock
+                {
+                    Text = $"プレビュー表示エラー: {ex.Message}",
+                    Foreground = Brushes.DarkRed,
+                    Margin = new Thickness(12),
+                    TextWrapping = TextWrapping.Wrap
+                };
+                AddLog($"賞状プレビューエラー: {ex.Message}");
+            }
+        }
+
+        private void BtnAwardLoad_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "賞状レイアウトを読み込む",
+                Filter = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*"
+            };
+            if (dlg.ShowDialog() != true) return;
+            LoadAwardLayout(dlg.FileName);
+            AddLog($"賞状レイアウト読込: {dlg.FileName}");
+        }
+
+        private void BtnAwardSave_Click(object sender, RoutedEventArgs e)
+        {
+            SaveAwardLayout(_awardLayoutPath);
+        }
+
+        private void BtnAwardSaveAs_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "賞状レイアウトを保存",
+                Filter = "JSONファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+                FileName = _awardLayout.LayoutName + ".json"
+            };
+            if (dlg.ShowDialog() != true) return;
+            SaveAwardLayout(dlg.FileName);
+        }
+
+        private void SaveAwardLayout(string? path)
+        {
+            try
+            {
+                var service = _printService?.AwardService ?? CreateStandaloneAwardService();
+                string saved = service.SaveLayout(_awardLayout, path);
+                _awardLayoutPath = saved;
+                TxtAwardLayoutPath.Text = saved;
+                AddLog($"賞状レイアウト保存: {saved}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"保存に失敗しました。\n{ex.Message}", "賞状保存エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnAwardTestPrint_Click(object sender, RoutedEventArgs e)
+        {
+            if (_printService == null)
+            {
+                MessageBox.Show("先に接続してから実行してください。", "未接続", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var selected = ShowPrinterSelectDialog("賞状テスト印刷用のプリンターを選択してください");
+            if (selected == null) return;
+
+            try
+            {
+                _printService.AwardService.PrintTest(_awardLayout, selected);
+                AddLog($"賞状テスト印刷完了: printer={selected}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"賞状テスト印刷に失敗しました。\n{ex.Message}", "賞状テスト印刷エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void LstAwardItems_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_updatingAwardUi) return;
+            _updatingAwardUi = true;
+            UpdateAwardItemEditor();
+            _updatingAwardUi = false;
+        }
+
+        private void AwardSetting_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_updatingAwardUi) return;
+            ApplyAwardUiToModel();
+            RenderAwardPreview();
+        }
+
+        private void ApplyAwardUiToModel()
+        {
+            _awardLayout.LayoutName = TxtAwardLayoutName.Text.Trim();
+            if (TryGetAwardOptionValue(CmbAwardPaperSize, out AwardPaperSize paperSize))
+                _awardLayout.PaperSize = paperSize;
+            if (TryGetAwardOptionValue(CmbAwardOrientation, out AwardOrientation orientation))
+                _awardLayout.Orientation = orientation;
+            _awardLayout.MeshSizeMm = ParseIntOrDefault(TxtAwardMeshSize.Text, _awardLayout.MeshSizeMm);
+            if (TryGetAwardOptionValue(CmbAwardNamePrintMode, out AwardNamePrintMode namePrintMode))
+                _awardLayout.NamePrintMode = namePrintMode;
+            _awardLayout.SurnameSinglePrintEnabled = ChkAwardSurnameSingle.IsChecked == true;
+            _awardLayout.MinimumAutoFontSizePt = ParseDoubleOrDefault(TxtAwardMinimumFontSize.Text, _awardLayout.MinimumAutoFontSizePt);
+            if (TryGetAwardOptionValue(CmbAwardSemiFinalRankMode, out AwardSemiFinalRankMode semiFinalRankMode))
+                _awardLayout.SemiFinalRankMode = semiFinalRankMode;
+            _awardLayout.SemiFinalText = TxtAwardSemiFinalText.Text;
+
+            if (LstAwardItems.SelectedItem is not AwardLayoutItem item) return;
+            item.Enabled = ChkAwardItemEnabled.IsChecked == true;
+            item.Centered = ChkAwardItemCentered.IsChecked == true;
+            item.Bold = ChkAwardItemBold.IsChecked == true;
+            if (TryGetAwardOptionValue(CmbAwardTextAlign, out AwardTextAlign textAlign))
+                item.TextAlign = textAlign;
+            if (TryGetAwardOptionValue(CmbAwardOverflowMode, out AwardOverflowMode overflowMode))
+                item.OverflowMode = overflowMode;
+            item.Text = TxtAwardItemText.Text;
+            item.XMm = ParseDoubleOrDefault(TxtAwardX.Text, item.XMm);
+            item.YMm = ParseDoubleOrDefault(TxtAwardY.Text, item.YMm);
+            item.WidthMm = ParseDoubleOrDefault(TxtAwardWidth.Text, item.WidthMm);
+            item.FontFamily = string.IsNullOrWhiteSpace(TxtAwardFontFamily.Text) ? item.FontFamily : TxtAwardFontFamily.Text.Trim();
+            item.FontSizePt = ParseDoubleOrDefault(TxtAwardFontSize.Text, item.FontSizePt);
+            item.LineSpacingMm = ParseDoubleOrDefault(TxtAwardLineSpacing.Text, item.LineSpacingMm);
+        }
+
+        private void RefreshAwardRankRows()
+        {
+            _awardRankRows.Clear();
+            for (int rank = 1; rank <= 16; rank++)
+            {
+                string key = rank.ToString();
+                _awardLayout.RankTexts.TryGetValue(key, out var text);
+                _awardRankRows.Add(new AwardRankRow(key, text ?? $"第{rank}位"));
+            }
+        }
+
+        private static AwardService CreateStandaloneAwardService()
+        {
+            var log = new LOG_C();
+            return new AwardService(log, new DSPrt.Data.DataManager(log), new PrinterController(log));
+        }
+
+        private void BtnSelectAwardFont_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new FontSelectDialog(TxtAwardFontFamily.Text) { Owner = this };
+            if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.SelectedFontFamily))
+                return;
+
+            TxtAwardFontFamily.Text = dialog.SelectedFontFamily;
+            ApplyAwardUiToModel();
+            RenderAwardPreview();
+        }
+
+        private static AwardOption<T> CreateOption<T>(T value) where T : struct, Enum
+        {
+            return new AwardOption<T>(value, GetLabel(value));
+        }
+
+        private static void SelectAwardOption<T>(ComboBox comboBox, T value) where T : struct, Enum
+        {
+            comboBox.SelectedItem = comboBox.Items.OfType<AwardOption<T>>().FirstOrDefault(x => EqualityComparer<T>.Default.Equals(x.Value, value));
+        }
+
+        private static bool TryGetAwardOptionValue<T>(ComboBox comboBox, out T value) where T : struct, Enum
+        {
+            if (comboBox.SelectedItem is AwardOption<T> option)
+            {
+                value = option.Value;
+                return true;
+            }
+
+            value = default;
+            return false;
+        }
+
+        private void AwardRankTextGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.Row.Item is not AwardRankRow row || e.EditingElement is not TextBox textBox) return;
+            _awardLayout.RankTexts[row.Rank] = textBox.Text;
+            RenderAwardPreview();
+        }
+
+        private static double ParseDoubleOrDefault(string text, double defaultValue)
+        {
+            return double.TryParse(text, out var value) ? value : defaultValue;
+        }
+
+        private static int ParseIntOrDefault(string text, int defaultValue)
+        {
+            return int.TryParse(text, out var value) ? value : defaultValue;
         }
 
         // ─── 競技会選択ダイアログ ────────────────────────────────────
@@ -782,26 +1007,26 @@ namespace DSPrt
         {
             if (connecting)
             {
-                StatusIndicator.Fill     = Brushes.Orange;
+                StatusIndicator.Fill = Brushes.Orange;
                 TxtConnectionStatus.Text = "接続中...";
-                BtnConnect.IsEnabled     = false;
-                BtnDisconnect.IsEnabled  = false;
+                BtnConnect.IsEnabled = false;
+                BtnDisconnect.IsEnabled = false;
                 return;
             }
 
             if (connected == true)
             {
-                StatusIndicator.Fill     = Brushes.LimeGreen;
+                StatusIndicator.Fill = Brushes.LimeGreen;
                 TxtConnectionStatus.Text = "接続済み";
-                BtnConnect.IsEnabled     = false;
-                BtnDisconnect.IsEnabled  = true;
+                BtnConnect.IsEnabled = false;
+                BtnDisconnect.IsEnabled = true;
             }
             else
             {
-                StatusIndicator.Fill     = Brushes.Gray;
+                StatusIndicator.Fill = Brushes.Gray;
                 TxtConnectionStatus.Text = "未接続";
-                BtnConnect.IsEnabled     = true;
-                BtnDisconnect.IsEnabled  = false;
+                BtnConnect.IsEnabled = true;
+                BtnDisconnect.IsEnabled = false;
             }
         }
 
@@ -824,36 +1049,90 @@ namespace DSPrt
     /// </summary>
     public class JobLogItem
     {
-        public string          JobId       { get; set; }
-        public string          LayoutId    { get; set; }
-        public int             Copies      { get; set; }
-        public PrintJobStatus  Status      { get; set; }
-        public DateTime        ReceivedAt  { get; set; }
-        public DateTime?       CompletedAt { get; set; }
-        public string?         ErrorMessage { get; set; }
-        public string          StatusText  => Status switch
+        public string JobId { get; set; }
+        public string LayoutId { get; set; }
+        public int Copies { get; set; }
+        public PrintJobStatus Status { get; set; }
+        public DateTime ReceivedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+        public string? ErrorMessage { get; set; }
+        public string StatusText => Status switch
         {
-            PrintJobStatus.Queued     => "待機",
+            PrintJobStatus.Queued => "待機",
             PrintJobStatus.Processing => "印刷中",
-            PrintJobStatus.Done       => "完了",
-            PrintJobStatus.Error      => "エラー",
-            PrintJobStatus.Cancelled  => "キャンセル",
-            _                         => Status.ToString()
+            PrintJobStatus.Done => "完了",
+            PrintJobStatus.Error => "エラー",
+            PrintJobStatus.Cancelled => "キャンセル",
+            _ => Status.ToString()
         };
 
-        /// <summary>再印刷・ジョブログ参照用に元のジョブを保持</summary>
         public PrintJob OriginalJob { get; }
 
         public JobLogItem(PrintJob job)
         {
-            OriginalJob  = job;
-            JobId        = job.JobId;
-            LayoutId     = job.LayoutId;
-            Copies       = job.Copies;
-            Status       = job.Status;
-            ReceivedAt   = job.ReceivedAt;
-            CompletedAt  = job.CompletedAt;
+            OriginalJob = job;
+            JobId = job.JobId;
+            LayoutId = job.LayoutId;
+            Copies = job.Copies;
+            Status = job.Status;
+            ReceivedAt = job.ReceivedAt;
+            CompletedAt = job.CompletedAt;
             ErrorMessage = job.ErrorMessage;
         }
     }
+
+    public sealed class AwardRankRow : INotifyPropertyChanged
+    {
+        private string _text;
+
+        public AwardRankRow(string rank, string text)
+        {
+            Rank = rank;
+            _text = text;
+        }
+
+        public string Rank { get; }
+
+        public string Text
+        {
+            get => _text;
+            set
+            {
+                if (_text == value) return;
+                _text = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
+
+    public sealed class AwardItemTypeLabelConverter : System.Windows.Data.IValueConverter
+    {
+        public static AwardItemTypeLabelConverter Instance { get; } = new AwardItemTypeLabelConverter();
+
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return value is AwardItemType itemType ? GetLabel(itemType) : string.Empty;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    public sealed class AwardOption<T> where T : struct, Enum
+    {
+        public AwardOption(T value, string label)
+        {
+            Value = value;
+            Label = label;
+        }
+
+        public T Value { get; }
+        public string Label { get; }
+    }
+
 }

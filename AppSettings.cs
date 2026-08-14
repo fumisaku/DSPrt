@@ -38,6 +38,7 @@ namespace DSPrt
     {
         public string DefaultPrinterName { get; set; } = "";
         public string AwardPrinterName { get; set; } = "";
+        public string AwardLayoutPath { get; set; } = "";
         public string SpoolDirectory { get; set; } = "./Spool";
         public int MaxQueueSize { get; set; } = 50;
         public int JobLogMaxCount { get; set; } = 200;

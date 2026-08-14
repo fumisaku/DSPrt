@@ -24,6 +24,7 @@ namespace DSPrt.印刷
         public string LayoutId { get; set; } = string.Empty;
         public int Copies { get; set; } = 1;
         public int Priority { get; set; } = 2;
+        public List<string> TargetBibNos { get; set; } = new List<string>();
         /// <summary>DV_Result 等の JSON データ（null の場合はキャッシュを参照）</summary>
         public JsonNode? Data { get; set; }
 
@@ -41,12 +42,13 @@ namespace DSPrt.印刷
         {
             return new PrintJob
             {
-                JobId     = JobId.EndsWith("_R", StringComparison.Ordinal) ? JobId : JobId + "_R",
-                LayoutId  = LayoutId,
-                Copies    = Copies,
-                Priority  = Priority,
-                Data      = Data,
-                Status    = PrintJobStatus.Queued,
+                JobId      = JobId.EndsWith("_R", StringComparison.Ordinal) ? JobId : JobId + "_R",
+                LayoutId   = LayoutId,
+                Copies     = Copies,
+                Priority   = Priority,
+                TargetBibNos = new List<string>(TargetBibNos),
+                Data       = Data,
+                Status     = PrintJobStatus.Queued,
                 ReceivedAt = DateTime.Now
             };
         }
