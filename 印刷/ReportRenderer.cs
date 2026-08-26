@@ -1851,12 +1851,13 @@ namespace DSPrt.印刷
         ///   DataBand 列ヘッダー: D01〜D10（種目コード）
         ///   DataBand データ行:   VRxx_C01（背番号）, VRxx_C02（選手名）, VRxx_C03〜C12（ヒート番号） xx=01〜30
         ///
+        /// ■ 複数DGrp統合
+        ///   同一ラウンドに複数の種目グループがある場合、全DGrpの種目・選手ヒートを1枚に統合する。
+        ///   種目コードで重複排除し、GRP1→GRP2の順に最大10種目まで列挙する。
+        ///   種目コード（DE_DncCd）をキーとして各DGrpの HeatId→HeatNo を解決・マージする。
+        ///
         /// ■ 複数ページ対応
         ///   全選手を背番号昇順で並べ、30行/ページで分割する。
-        ///   DataTable "PlayerHeatPage"（行数=ページ数、列: PageIdx, VR01_C01〜VR30_C12）を生成し
-        ///   DataBand の DataSource として RegisterData する。
-        ///   frx DataBand 内の各 TextObject の Text は [PlayerHeatPage.VRxx_Cyy] 式で参照する。
-        ///   FastReport が DataBand を行数分繰り返すことで自動改ページされる。
         /// </summary>
         private void BindPlayerHeatVertical(Report report, JsonNode? jobData)
         {
@@ -1888,40 +1889,46 @@ namespace DSPrt.印刷
                 var floors     = dsJson["DS_FLOORs"] as JArray;
                 int floorCount = floors?.Count ?? 0;
 
-                // ── 対象 DS_PRGRS を KbnNo / RndNo で検索 ────────────────────────
-                JObject? prgrs    = null;
-                string   flrCd    = "";
-                string   prgNo    = "";
-                string   prgSubNo = "";
+                // ── 対象 DS_PRGRS を KbnNo / RndNo / DGrpNo で全DGrp分収集 ────────
+                // 複数DGrpがある場合は全てを収集して後でマージする
+                var prgrsListAll  = new List<JObject>();
+                string flrCd    = "";
+                string prgNo    = "";
+                string prgSubNo = "";
 
                 if (floors != null)
                 {
                     foreach (var floor in floors.OfType<JObject>())
                     {
-                        var prgrsList = floor["DS_PRGRSs"] as JArray;
-                        if (prgrsList == null) continue;
-                        foreach (var p in prgrsList.OfType<JObject>())
+                        var prList = floor["DS_PRGRSs"] as JArray;
+                        if (prList == null) continue;
+                        foreach (var p in prList.OfType<JObject>())
                         {
                             if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
                             if (p["DS_RndNo"]?.ToString()  != rndNo)  continue;
+                            // DGrpNo が指定されている場合は単一DGrpのみ
                             if (!string.IsNullOrEmpty(dGrpNo) &&
                                 p["DS_DGrpNo"]?.ToString() != dGrpNo)
                                 continue;
-                            prgrs    = p;
-                            flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
-                            prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
-                            prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
-                            break;
+                            prgrsListAll.Add((JObject)p);
+                            if (prgrsListAll.Count == 1)
+                            {
+                                flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
+                                prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
+                                prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
+                            }
                         }
-                        if (prgrs != null) break;
                     }
                 }
 
-                if (prgrs == null)
+                if (prgrsListAll.Count == 0)
                 {
                     _log.LogAdd($"[ReportRenderer] BindPlayerHeatVertical: 対象ラウンドが見つかりません KbnNo={kbnNo} RndNo={rndNo}", _log.WARNING);
                     return;
                 }
+
+                // 後方互換：単一prgrsを最初の要素とする
+                var prgrs = prgrsListAll[0];
 
                 // ── DA_Master から区分・ラウンド情報を取得 ────────────────────────
                 var kbnList = daJson["DB_KUBUNs"] as JArray;
@@ -1941,38 +1948,70 @@ namespace DSPrt.印刷
                 int    rndUpPln = rndObj?["DC_RndUpPln"]?.ToObject<int>() ?? 0;
                 string scrMtd   = rndObj?["DC_RndScrMtd"]?.ToString() ?? "";
 
-                // ── 種目グループ・種目一覧（最大10種目）───────────────────────────
-                var dgList = rndObj?["DD_DGRPs"] as JArray;
+                // ── 種目グループ一覧（DA_Master より）────────────────────────────
+                var dgList  = rndObj?["DD_DGRPs"] as JArray;
                 int dgCount = dgList?.Count ?? 0;
 
-                JObject? dgrpObj = null;
-                if (dgList != null)
+                // 対象DGrpを決定（DGrpNo指定時は単一、未指定時は全DGrp）
+                List<JObject> targetDgrps;
+                if (!string.IsNullOrEmpty(dGrpNo))
                 {
-                    if (!string.IsNullOrEmpty(dGrpNo))
-                        dgrpObj = dgList.OfType<JObject>()
-                            .FirstOrDefault(g => g["DD_DGrpNo"]?.ToString() == dGrpNo);
-                    dgrpObj ??= dgList.OfType<JObject>().FirstOrDefault();
+                    var single = dgList?.OfType<JObject>()
+                        .FirstOrDefault(g => g["DD_DGrpNo"]?.ToString() == dGrpNo)
+                        ?? dgList?.OfType<JObject>().FirstOrDefault();
+                    targetDgrps = single != null ? new List<JObject> { single } : new List<JObject>();
+                }
+                else
+                {
+                    targetDgrps = dgList?.OfType<JObject>().ToList() ?? new List<JObject>();
                 }
 
-                string dgrpName = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
-                var dncList     = dgrpObj?["DE_DANCEs"] as JArray;
-                var dances      = dncList?.OfType<JObject>()
-                    .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
-                    ?? new List<JObject>();
+                // 全DGrpの種目を統合（種目コードで重複排除、追加順=GRP1→GRP2を維持）
+                var allDances = new List<JObject>();
+                foreach (var dgrp in targetDgrps)
+                {
+                    var dncList = dgrp["DE_DANCEs"] as JArray;
+                    var sorted  = dncList?.OfType<JObject>()
+                        .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0)
+                        .ToList() ?? new List<JObject>();
+                    foreach (var d in sorted)
+                    {
+                        string cd = d["DE_DncCd"]?.ToString() ?? "";
+                        if (!string.IsNullOrEmpty(cd) && !allDances.Any(x => x["DE_DncCd"]?.ToString() == cd))
+                            allDances.Add(d);
+                    }
+                }
 
-                int danceCount = Math.Min(dances.Count, 10);  // 最大10種目
+                // DGrpNoとDA_Master DGrp種目リストの対応マップ（後のマッピング用）
+                // dgrpNo → DE_DncNo昇順ソート済み種目リスト
+                var dgrpDancesMap = new Dictionary<string, List<JObject>>();
+                foreach (var dgrp in targetDgrps)
+                {
+                    string dgNo = dgrp["DD_DGrpNo"]?.ToString() ?? "";
+                    var dncList = dgrp["DE_DANCEs"] as JArray;
+                    dgrpDancesMap[dgNo] = dncList?.OfType<JObject>()
+                        .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0)
+                        .ToList() ?? new List<JObject>();
+                }
 
-                // 種目コード・SG種別（最大10）
+                int danceCount = Math.Min(allDances.Count, 10);  // 最大10種目
+
+                // 種目コード・SG種別（最大10、allDances の追加順）
                 string[] dsCodes = new string[10];
                 string[] dcTypes = new string[10];
                 for (int i = 0; i < 10; i++)
                 {
-                    if (i < dances.Count)
+                    if (i < allDances.Count)
                     {
-                        dsCodes[i] = dances[i]["DE_DncCd"]?.ToString() ?? "";
-                        dcTypes[i] = dances[i]["DE_DncSG"]?.ToString() ?? "";
+                        dsCodes[i] = allDances[i]["DE_DncCd"]?.ToString() ?? "";
+                        dcTypes[i] = allDances[i]["DE_DncSG"]?.ToString() ?? "";
                     }
                 }
+
+                // 種目コード→列インデックス（0始まり）マップ
+                var danceCodeToIdx = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < danceCount; i++)
+                    danceCodeToIdx[dsCodes[i]] = i;
 
                 // ── KubunName 構築 ────────────────────────────────────────────────
                 string kbnNoDisplay = int.TryParse(kbnNo, out int kbnNoInt)
@@ -1981,8 +2020,13 @@ namespace DSPrt.印刷
                 kubunParts.Append(kbnNoDisplay);
                 if (!string.IsNullOrEmpty(kbnCd))      kubunParts.Append(" ").Append(kbnCd);
                 if (!string.IsNullOrEmpty(kbnDspName)) kubunParts.Append(" ").Append(kbnDspName);
-                if (dgCount > 1 && !string.IsNullOrEmpty(dgrpName))
-                    kubunParts.Append(" ").Append(dgrpName);
+                // 単一DGrpかつDGrpが複数存在する場合のみDGrp名を付加（統合時は付加しない）
+                if (targetDgrps.Count == 1 && dgCount > 1)
+                {
+                    string dgrpName1 = targetDgrps[0]["DD_DGrpName"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(dgrpName1))
+                        kubunParts.Append(" ").Append(dgrpName1);
+                }
                 if (floorCount > 1 && !string.IsNullOrEmpty(flrCd))
                     kubunParts.Append(" ").Append(flrCd).Append("フロア");
                 string kubunName = kubunParts.ToString();
@@ -1993,64 +2037,47 @@ namespace DSPrt.印刷
                 string prgNoDisplay = string.IsNullOrEmpty(prgSubNo) || prgSubNo == "0" || prgSubNo == "1"
                     ? prgNoFormatted : $"{prgNoFormatted}-{prgSubNo}";
 
-                // ── HeatId → HeatNo マップ ─────────────────────────────────────────
-                var heatIdToNo   = new Dictionary<string, int>();
-                int maxHeatCount = 0;
-                var dncArr = prgrs["DS_PRGDANCEs"] as JArray;
-                if (dncArr != null)
+                // ── 全DGrpの HeatId → (HeatNo, 種目コード) マップを構築 ──────────
+                // キー: HeatId、値: (HeatNo, DanceCd)
+                var heatIdToDanceCdAndNo = new Dictionary<string, (string danceCd, int heatNo)>(StringComparer.OrdinalIgnoreCase);
+                int totalHeats = 0;
+
+                foreach (var prg in prgrsListAll)
                 {
-                    foreach (var dnc in dncArr.OfType<JObject>())
+                    string thisDGrpNo = prg["DS_DGrpNo"]?.ToString() ?? "";
+                    if (!dgrpDancesMap.TryGetValue(thisDGrpNo, out var dgrpDances))
+                        dgrpDances = new List<JObject>();
+
+                    var dncArr = prg["DS_PRGDANCEs"] as JArray;
+                    if (dncArr == null) continue;
+
+                    // DS_DncNo順にソート
+                    var dncSorted = dncArr.OfType<JObject>()
+                        .OrderBy(d => d["DS_DncNo"]?.ToObject<int>() ?? 0).ToList();
+
+                    for (int di = 0; di < dncSorted.Count; di++)
                     {
-                        var heatArr = dnc["DS_PRGHEATs"] as JArray;
+                        // DS_DncNo（1始まり連番）→ DA_Master の DE_DncCd に解決
+                        string danceCd = (di < dgrpDances.Count)
+                            ? dgrpDances[di]["DE_DncCd"]?.ToString() ?? di.ToString()
+                            : di.ToString();
+
+                        var heatArr = dncSorted[di]["DS_PRGHEATs"] as JArray;
                         if (heatArr == null) continue;
-                        int cnt = 0;
                         foreach (var h in heatArr.OfType<JObject>())
                         {
                             string? hid = h["DS_HeatId"]?.ToString();
                             int     hno = h["DS_HeatNo"]?.ToObject<int>() ?? 0;
-                            if (!string.IsNullOrEmpty(hid) && !heatIdToNo.ContainsKey(hid))
-                                heatIdToNo[hid] = hno;
-                            cnt++;
-                        }
-                        if (cnt > maxHeatCount) maxHeatCount = cnt;
-                    }
-                }
-                int totalHeats = heatIdToNo.Count > 0 ? heatIdToNo.Values.Max() : maxHeatCount;
-
-                // ── 各種目ごとの HeatId→HeatNo マップ（種目別ヒート番号解決用）────
-                // dncArr の順序は DS_DncNo 順（DA_Master の種目番号順ではなく進行順）
-                // DA_Master の種目コード順（dances）と対応させるため DS_DncNo でソートする
-                var dncObjsSorted = dncArr?.OfType<JObject>()
-                    .OrderBy(d => d["DS_DncNo"]?.ToObject<int>() ?? 0).ToList()
-                    ?? new List<JObject>();
-
-                // danceIdx → { HeatId → HeatNo } マップ
-                var danceHeatMaps = new List<Dictionary<string, int>>();
-                for (int di = 0; di < danceCount; di++)
-                {
-                    var map = new Dictionary<string, int>();
-                    if (di < dncObjsSorted.Count)
-                    {
-                        var heatArr2 = dncObjsSorted[di]["DS_PRGHEATs"] as JArray;
-                        if (heatArr2 != null)
-                        {
-                            foreach (var h in heatArr2.OfType<JObject>())
-                            {
-                                string? hid = h["DS_HeatId"]?.ToString();
-                                int     hno = h["DS_HeatNo"]?.ToObject<int>() ?? 0;
-                                if (!string.IsNullOrEmpty(hid) && !map.ContainsKey(hid))
-                                    map[hid] = hno;
-                            }
+                            if (!string.IsNullOrEmpty(hid) && !heatIdToDanceCdAndNo.ContainsKey(hid))
+                                heatIdToDanceCdAndNo[hid] = (danceCd, hno);
+                            if (hno > totalHeats) totalHeats = hno;
                         }
                     }
-                    danceHeatMaps.Add(map);
                 }
 
                 // ── 選手名解決マップ ────────────────────────────────────────────────
-                // DB_KbnSenM で指定されたマスタ番号の選手情報を使用する（選手マスタ考慮）
                 int targetMasNoV = int.TryParse(kbnObj?["DB_KbnSenM"]?.ToString(), out int senMV) ? senMV : 1;
                 var infoMapV     = BuildPlayerInfoMap(daJson, targetMasNoV);
-                // 表示形式:「L選手名の苗字・選手名の苗字」（例: 田中・鈴木）
                 var playerNameMap = infoMapV.ToDictionary(
                     kv => kv.Key,
                     kv =>
@@ -2061,35 +2088,48 @@ namespace DSPrt.印刷
                     },
                     StringComparer.Ordinal);
 
-                // ── PlayerAssignments を背番号昇順で並べ、種目別ヒート番号を解決 ──
-                var assignments = prgrs["PlayerAssignments"] as JArray;
-                int totalEntries = assignments?.Count ?? 0;
+                // ── 全DGrpの PlayerAssignments を背番号でマージ ──────────────────
+                // playerNo → heatNos[0..9] の辞書（種目コード→列インデックスで解決）
+                var playerHeatDict = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var prg in prgrsListAll)
+                {
+                    var assignments = prg["PlayerAssignments"] as JArray;
+                    if (assignments == null) continue;
+
+                    foreach (var pa in assignments.OfType<JObject>())
+                    {
+                        string playerNo = pa["PlayerNo"]?.ToString() ?? "";
+                        if (string.IsNullOrEmpty(playerNo)) continue;
+
+                        if (!playerHeatDict.TryGetValue(playerNo, out var heatNos))
+                        {
+                            heatNos = new string[10];
+                            playerHeatDict[playerNo] = heatNos;
+                        }
+
+                        var heatIds = pa["AssignedHeatIds"] as JArray;
+                        if (heatIds == null) continue;
+
+                        foreach (var hid in heatIds.OfType<JValue>().Select(v => v.ToString()))
+                        {
+                            if (string.IsNullOrEmpty(hid)) continue;
+                            if (!heatIdToDanceCdAndNo.TryGetValue(hid, out var info)) continue;
+                            if (!danceCodeToIdx.TryGetValue(info.danceCd, out int colIdx)) continue;
+                            if (info.heatNo > 0)
+                                heatNos[colIdx] = info.heatNo.ToString();
+                        }
+                    }
+                }
+
+                int totalEntries = playerHeatDict.Count;
 
                 // 選手ごとの行データ: (背番号, 選手名, D01〜D10 のヒート番号文字列[])
                 var playerRows = new List<(string bibNo, string lName, string[] heatNos)>();
-
-                if (assignments != null)
+                foreach (var kv in playerHeatDict)
                 {
-                    foreach (var pa in assignments.OfType<JObject>())
-                    {
-                        string playerNo   = pa["PlayerNo"]?.ToString() ?? "";
-                        string playerName = playerNameMap.TryGetValue(playerNo, out var pn) ? pn : "";
-                        var   heatIds    = pa["AssignedHeatIds"] as JArray;
-
-                        string[] heatNos = new string[10];
-                        if (heatIds != null)
-                        {
-                            for (int di = 0; di < danceCount; di++)
-                            {
-                                string heatId = di < heatIds.Count
-                                    ? heatIds[di]?.ToString() ?? ""
-                                    : (heatIds.Count > 0 ? heatIds[0]?.ToString() ?? "" : "");
-                                if (danceHeatMaps[di].TryGetValue(heatId, out int hn))
-                                    heatNos[di] = hn.ToString();
-                            }
-                        }
-                        playerRows.Add((playerNo, playerName, heatNos));
-                    }
+                    string playerName = playerNameMap.TryGetValue(kv.Key, out var pn) ? pn : "";
+                    playerRows.Add((kv.Key, playerName, kv.Value));
                 }
 
                 // 背番号数値昇順ソート
