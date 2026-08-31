@@ -174,29 +174,20 @@ namespace DSPrt.印刷
                 throw new InvalidOperationException($"layoutId '{job.LayoutId}' がDSPrt.jsonのLayoutsに登録されていません。");
             }
 
-            // プリンター名を解決
+            // プリンター名を解決し、解決済みの名前を PrintAsync に渡す。
+            // ResolvePrinterName() は layout.PrinterName → AppSettings のデフォルト → OS デフォルト
+            // の順で解決するが、layout.PrinterName が空のままだと PrintDirect() でプリンターが
+            // 設定されず OS デフォルトプリンターで印刷されてしまう。
             string printerName = _printerController.ResolvePrinterName(layout);
             if (!_printerController.PrinterExists(printerName))
             {
-                _log.LogAdd($"[PrintService] プリンター '{printerName}' が見つかりません。デフォルトプリンターを使用します。", _log.WARNING);
-                // フォールバック: Windows デフォルトプリンターを使用
-                string winDefault = _printerController.GetDefaultPrinterName();
-                // layout のコピーを作って上書き
-                layout = new LayoutSetting
-                {
-                    LayoutId    = layout.LayoutId,
-                    FrxPath     = layout.FrxPath,
-                    DataType    = layout.DataType,
-                    PrinterName = winDefault,
-                    Copies      = layout.Copies,
-                    Duplex      = layout.Duplex,
-                    PaperSize   = layout.PaperSize
-                };
+                _log.LogAdd($"[PrintService] プリンター '{printerName}' が見つかりません。Windows デフォルトプリンターを使用します。", _log.WARNING);
+                printerName = _printerController.GetDefaultPrinterName();
             }
 
             try
             {
-                await _renderer.PrintAsync(job, layout);
+                await _renderer.PrintAsync(job, layout, printerName);
                 PrintDone?.Invoke(this, new PrintDoneEventArgs(job.JobId, "done", null));
             }
             catch (Exception ex)

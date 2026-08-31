@@ -823,7 +823,8 @@
       <TextObject Name="R11C_06_C06" Left="342.25" Top="867.6" Width="60" Height="13.5" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
     </ReportSummaryBand>
     <PageFooterBand Name="PageFooter1" Top="1022.09" Width="718.2" Height="18.9">
-      <TextObject Name="PageNum1" Left="600" Width="155.91" Height="18.9" Text="[Page#] / [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+      <TextObject Name="FooterLeft" Left="18.9" Width="460" Height="18.9" Text="" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+      <TextObject Name="PageNum1" Left="498.24" Width="200.07" Height="18.9" Text="Page [Page#] / [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
     </PageFooterBand>
   </ReportPage>
   <ReportPage Name="Page2" RawPaperSize="9" Watermark.Font="MS UI Gothic, 60pt">
@@ -1553,7 +1554,8 @@
       <TextObject Name="SK_20_Rank2_P2" Left="457.8" Top="600.75" Width="45" Height="13.5" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
     </ReportSummaryBand>
     <PageFooterBand Name="PageFooter2" Top="869.74" Width="718.2" Height="18.9">
-      <TextObject Name="PageNum2" Left="600" Width="155.91" Height="18.9" Text="[Page#] / [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+      <TextObject Name="FooterLeft2" Left="18.9" Width="460" Height="18.9" Text="" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+      <TextObject Name="PageNum2" Left="498.24" Width="200.07" Height="18.9" Text="Page [Page#] / [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
     </PageFooterBand>
   </ReportPage>
 </Report>

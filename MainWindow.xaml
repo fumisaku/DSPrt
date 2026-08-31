@@ -40,6 +40,12 @@
                             Width="72" Height="22"
                             IsEnabled="False"
                             Click="BtnDisconnect_Click"/>
+                    <TextBlock x:Name="TxtVersion"
+                               Text=""
+                               VerticalAlignment="Center"
+                               Foreground="#888888"
+                               FontSize="10"
+                               Margin="16,0,4,0"/>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>

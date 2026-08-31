@@ -57,6 +57,19 @@ namespace DSPrt
             TxtServerInfo.Text = $"{ws.ServerIpAddress}:{ws.ServerPort}";
             AddLog($"DSPrt 起動: instanceId={ws.InstanceId}, server={ws.ServerIpAddress}:{ws.ServerPort}");
 
+            // バージョン情報をステータスバーに表示
+            // Version形式: 1.yy.MMdd.HHmm  例: 1.25.720.1432 → "v1.25 build 2025-07-20 14:32"
+            var ver = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
+            if (ver != null && TxtVersion != null)
+            {
+                int year  = 2000 + ver.Minor;
+                int month = ver.Build / 100;
+                int day   = ver.Build % 100;
+                int hour  = ver.Revision / 100;
+                int min   = ver.Revision % 100;
+                TxtVersion.Text = $"v{ver.Major}.{ver.Minor} build {year}-{month:D2}-{day:D2} {hour:D2}:{min:D2}";
+            }
+
             RefreshLayoutTab();
             InitializeAwardTab();
         }
@@ -376,9 +389,12 @@ namespace DSPrt
         {
             Dispatcher.Invoke(() =>
             {
-                TxtDefaultPrinter.Text = _printService != null
-                    ? _printService.PrinterController.GetDefaultPrinterName()
-                    : AppSettings.Instance.PrintSettings.DefaultPrinterName;
+                // デフォルトプリンターは AppSettings の値を表示する。
+                // 未設定の場合は OS のデフォルトプリンターをフォールバック表示する。
+                string appDefault = AppSettings.Instance.PrintSettings.DefaultPrinterName;
+                TxtDefaultPrinter.Text = !string.IsNullOrWhiteSpace(appDefault)
+                    ? appDefault
+                    : (_printService?.PrinterController.GetDefaultPrinterName() ?? string.Empty);
 
                 LayoutGrid.ItemsSource = _printService != null
                     ? _printService.Registry.All.ToList()

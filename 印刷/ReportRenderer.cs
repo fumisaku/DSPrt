@@ -145,6 +145,9 @@ namespace DSPrt.印刷
                     // 2. データセット（対策3: suffix="" で常に1ページ目のオブジェクト名を使用）
                     ApplyJudgeSheetPage(report, ctx, jdgCd, jdgName, dncIdx, suffix: "");
 
+                    // 2b. 共通フッター（日付・競技会番号・競技会名）をセット
+                    BindCommonFooter(report);
+
                     // 3. Prepare（対策3: WebMode=true のままスクリプトコンパイルをスキップ）
                     report.Prepare();
 
@@ -356,6 +359,9 @@ namespace DSPrt.印刷
                     BindDvResult(report, job.Data);
                     break;
             }
+
+            // 共通フッター（日付・競技会番号・競技会名）をセット
+            BindCommonFooter(report);
 
             // Prepare 直前: DM_Masters 接続状態確認
             var dsBeforePrepare = report.Dictionary.DataSources.FindByName("DM_Masters") as FastReport.Data.TableDataSource;
@@ -1481,7 +1487,9 @@ namespace DSPrt.印刷
                 dgrpObj ??= dgList.OfType<JObject>().FirstOrDefault();
             }
 
-            string dgrpName = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
+            string dgrpName   = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
+            string dgrpJdgGrp = dgrpObj?["DD_DGrpJdgGrp"]?.ToString()
+                                ?? rndObj?["DC_RndJdgGrp"]?.ToString() ?? "";
             var dncList     = dgrpObj?["DE_DANCEs"] as JArray;
             var dances      = dncList?.OfType<JObject>()
                 .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
@@ -1586,18 +1594,30 @@ namespace DSPrt.印刷
             // ── ラウンドチェック表示用オブジェクト ────────────────────────────
             var roundObjs = rndList?.OfType<JObject>().ToList() ?? new List<JObject>();
 
-            // ── DA_Master から対象ジャッジリストを取得 ──────────────────────────
+            // ── DA_Master から対象ジャッジリストを取得（担当グループ＋役割ブランク除外）──
             var allJudges = new List<(string jdgCd, string jdgName)>();
             var djJudges = daJson["DJ_JUDGEs"] as JArray;
             if (djJudges != null)
             {
                 foreach (var dj in djJudges.OfType<JObject>())
                 {
-                    string jcd  = dj["DJ_JdgCd"]?.ToString() ?? "";
-                    string jnm  = dj["DJ_JdgDispName"]?.ToString()
-                                  ?? dj["DJ_JdgName"]?.ToString() ?? "";
-                    if (!string.IsNullOrEmpty(jcd))
-                        allJudges.Add((jcd, jnm));
+                    string jcd = dj["DJ_JdgCd"]?.ToString() ?? "";
+                    string jnm = dj["DJ_JdgDispName"]?.ToString()
+                                 ?? dj["DJ_JdgName"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(jcd)) continue;
+
+                    // 担当ジャッジグループが特定できている場合：
+                    //   そのグループに所属し、かつ役割（DJ_JdgTyp）がブランクでないもののみ対象
+                    if (!string.IsNullOrEmpty(dgrpJdgGrp))
+                    {
+                        var grpArr = dj["DJ_JdgGrps"] as JArray;
+                        bool matched = grpArr?.OfType<JObject>().Any(g =>
+                            string.Equals(g["DJ_JdgGrp"]?.ToString(), dgrpJdgGrp, StringComparison.OrdinalIgnoreCase) &&
+                            !string.IsNullOrWhiteSpace(g["DJ_JdgTyp"]?.ToString())) ?? false;
+                        if (!matched) continue;
+                    }
+
+                    allJudges.Add((jcd, jnm));
                 }
             }
 
@@ -2289,6 +2309,65 @@ namespace DSPrt.印刷
             catch (Exception ex)
             {
                 _log.LogAdd($"[ReportRenderer] BindPlayerHeatVertical エラー: {ex.Message}", _log.ERR);
+            }
+        }
+
+        /// <summary>
+        /// 全帳票共通フッターをセットする。
+        /// PageFooterBand 内の FooterLeft TextObject に
+        ///   「yyyy/M/d　競技会番号　競技会名」を書き込む。
+        /// DA_Master が未受信の場合は日付のみセットする。
+        /// 得点一覧表_順位法_横.frx の Page2（FooterLeft2）にも同じ内容をセットする。
+        /// </summary>
+        private void BindCommonFooter(Report report)
+        {
+            string today   = DateTime.Today.ToString("yyyy/M/d");
+            string cmpNo   = "";
+            string cmpName = "";
+
+            if (_dataManager.DA_Master != null)
+            {
+                try
+                {
+                    var root = Newtonsoft.Json.Linq.JObject.Parse(_dataManager.DA_Master.ToJsonString());
+                    cmpNo   = root["DA_CompNo"]?.ToString()   ?? "";
+                    cmpName = root["DA_CompName"]?.ToString() ?? "";
+                }
+                catch { /* DA_Master パース失敗時は空文字のまま */ }
+            }
+
+            // フッター左側テキスト: "yyyy/M/d　競技会番号　競技会名"
+            var parts = new System.Text.StringBuilder();
+            parts.Append(today);
+            if (!string.IsNullOrEmpty(cmpNo))
+                parts.Append("\u3000").Append(cmpNo);
+            if (!string.IsNullOrEmpty(cmpName))
+                parts.Append("\u3000").Append(cmpName);
+            string footerText = parts.ToString();
+
+            // 全ページの FooterLeft に同じテキストをセット
+            // （DuplicatePageInReportXml 複製後は _P02 等サフィックス付きになるため全 TextObject を走査）
+            SetFooterTextInAllPages(report, footerText);
+        }
+
+        /// <summary>
+        /// report 内のすべての TextObject を走査して Name が "FooterLeft" または
+        /// "FooterLeft2"（順位法2ページ目）に一致するものにテキストをセットする。
+        /// </summary>
+        private static void SetFooterTextInAllPages(Report report, string text)
+        {
+            // report.FindObject は名前完全一致で最初の1件のみを返すため、
+            // 複製後の _P02 等サフィックス付きオブジェクトには対応できない。
+            // report.AllObjects を走査して名前が "FooterLeft" で始まるものをまとめてセットする。
+            foreach (FastReport.Base obj in report.AllObjects)
+            {
+                if (obj is FastReport.TextObject txt)
+                {
+                    // "FooterLeft" または "FooterLeft2" (得点一覧表_順位法_横の Page2)
+                    // 複製後は "FooterLeft_P02" 等になるが、それも含めてセット
+                    if (txt.Name.StartsWith("FooterLeft", StringComparison.Ordinal))
+                        txt.Text = text;
+                }
             }
         }
 
@@ -5005,7 +5084,7 @@ namespace DSPrt.印刷
                     var (bibNo, lLast, pLast, total, rankDisp, upResult, cScores) = playerRows[dataIdx];
                     bool isUp = upResult == "UP";
 
-                    // 固定列（C01〜C05）
+                    // 固定列（C01〜C05）: 全辺罫線
                     SetTextObjectDirect(report, $"DR_{nn}_C01{suffix}", bibNo, blAll);
                     string playerName = string.IsNullOrEmpty(pLast) ? lLast : $"{lLast}・{pLast}";
                     SetTextObjectDirectEx(report, $"DR_{nn}_C02{suffix}", playerName, blAll, autoShrink: true);
@@ -5042,7 +5121,7 @@ namespace DSPrt.印刷
                             continue;
                         }
 
-                        // 罫線判定
+                        // 罫線判定: 種目先頭でLeft、種目末尾でRight、Top/Bottom常時あり
                         bool isFirst = judgeIdx == 0;
                         int  nextIdx = colIdx + 1;
                         bool isLast  = nextIdx >= colEnd || nextIdx >= checkCols.Count

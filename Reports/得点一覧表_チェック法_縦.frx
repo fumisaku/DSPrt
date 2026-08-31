@@ -1576,7 +1576,8 @@
       </TableObject>
     </DataBand>
     <PageFooterBand Name="PageFooter1" Top="1005.2" Width="718.2" Height="28.35">
-      <TextObject Name="PageNo" Left="517.56" Top="9.45" Width="192.51" Height="18.9" Text="[Page#] / [TotalPages#] Page" HorzAlign="Right" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+      <TextObject Name="FooterLeft" Left="18.9" Top="9.45" Width="460" Height="18.9" Text="" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+      <TextObject Name="PageNo" Left="498.24" Top="9.45" Width="200.07" Height="18.9" Text="Page [Page#] / [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
     </PageFooterBand>
   </ReportPage>
 </Report>
