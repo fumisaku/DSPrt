@@ -104,12 +104,13 @@
                 <Grid Margin="4">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- デフォルトプリンター表示 -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4,4,4,8">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4,4,4,4">
                         <TextBlock Text="デフォルトプリンター: " VerticalAlignment="Center" FontWeight="Bold"/>
                         <TextBlock x:Name="TxtDefaultPrinter" Text="-" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <Button x:Name="BtnChangeDefaultPrinter"
@@ -119,36 +120,229 @@
                                 Click="BtnChangeDefaultPrinter_Click"/>
                     </StackPanel>
 
-                    <!-- レイアウト設定一覧 -->
-                    <DataGrid x:Name="LayoutGrid"
-                              Grid.Row="1"
+                    <!-- 帳票設定説明 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4,0,4,4">
+                        <TextBlock Text="■ 印刷部数設定（採点方式×ラウンド×帳票名ごとに、各配布先への印刷部数を設定してください）　"
+                                   FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="※列見出しは編集可（帳票右上に印刷される文字列）"
+                                   Foreground="#666666" FontSize="11" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 印刷部数設定グリッド（Excelの印刷部数サンプルと同じレイアウト） -->
+                    <DataGrid x:Name="CopiesGrid"
+                              Grid.Row="2"
                               AutoGenerateColumns="False"
-                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
                               SelectionMode="Single"
-                              GridLinesVisibility="Horizontal"
-                              AlternatingRowBackground="#FAFAFA"
+                              GridLinesVisibility="All"
+                              AlternatingRowBackground="#F5F5F5"
                               FontSize="12"
-                              RowHeight="22"
-                              SelectionChanged="LayoutGrid_SelectionChanged">
+                              RowHeight="24"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              SelectionChanged="CopiesGrid_SelectionChanged">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="layoutId"     Binding="{Binding LayoutId}"     Width="160"/>
-                            <DataGridTextColumn Header="frx ファイル" Binding="{Binding FrxPath}"      Width="220"/>
-                            <DataGridTextColumn Header="データ種別"   Binding="{Binding DataType}"     Width="140"/>
-                            <DataGridTextColumn Header="プリンター"   Binding="{Binding PrinterName}"  Width="160"/>
-                            <DataGridTextColumn Header="部数"         Binding="{Binding Copies}"       Width="50"/>
-                            <DataGridTextColumn Header="用紙"         Binding="{Binding PaperSize}"    Width="60"/>
-                            <DataGridTextColumn Header="両面"         Binding="{Binding Duplex}"       Width="*"/>
+                            <DataGridTextColumn Header="採点方式" Binding="{Binding 採点方式}" Width="80"  IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Background" Value="#EEF2FF"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Padding" Value="3,0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                <Setter Property="Background" Value="#B3D4FF"/>
+                                                <Setter Property="Foreground" Value="#1A1A1A"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="ラウンド" Binding="{Binding ラウンド}" Width="70"  IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Background" Value="#EEF2FF"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Padding" Value="3,0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                <Setter Property="Background" Value="#B3D4FF"/>
+                                                <Setter Property="Foreground" Value="#1A1A1A"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="帳票名"   Binding="{Binding 帳票名}"   Width="160" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Background" Value="#EEF2FF"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Padding" Value="3,0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                <Setter Property="Background" Value="#B3D4FF"/>
+                                                <Setter Property="Foreground" Value="#1A1A1A"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <!-- 配布先列：HeaderはTextBoxをラップしてダブルクリックで編集 -->
+                            <DataGridTextColumn x:Name="ColRole0" Binding="{Binding 司会}"     Width="42">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel0" Text="司会"     Width="38" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole1" Binding="{Binding 掲示}"     Width="42">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel1" Text="掲示"     Width="38" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole2" Binding="{Binding 選手係}"   Width="52">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel2" Text="選手係"   Width="48" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole3" Binding="{Binding 本部}"     Width="42">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel3" Text="本部"     Width="38" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole4" Binding="{Binding ステマネ}" Width="58">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel4" Text="ステマネ" Width="54" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole5" Binding="{Binding 賞状}"     Width="42">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel5" Text="賞状"     Width="38" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole6" Binding="{Binding 保存}"     Width="42">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel6" Text="保存"     Width="38" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole7" Binding="{Binding GM}"       Width="42">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel7" Text="GM"       Width="38" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole8" Binding="{Binding レフリー}" Width="58">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel8" Text="レフリー" Width="54" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole9" Binding="{Binding 予備1}"    Width="48">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel9" Text="予備1"    Width="44" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn x:Name="ColRole10" Binding="{Binding 予備2}"   Width="48">
+                                <DataGridTextColumn.Header>
+                                    <TextBox x:Name="TxtLabel10" Text="予備2"   Width="44" BorderThickness="0"
+                                             Background="Transparent" FontSize="12"
+                                             ToolTip="ダブルクリックで編集。帳票右上に印刷されます。"
+                                             MouseDoubleClick="RoleLabelTextBox_MouseDoubleClick"
+                                             LostFocus="RoleLabelTextBox_LostFocus"
+                                             KeyDown="RoleLabelTextBox_KeyDown"
+                                             IsReadOnly="True"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
                         </DataGrid.Columns>
+                        <!-- 採点方式が変わる行の区切り線 + 選択色を読みやすく上書き -->
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFirstInGroup}" Value="True">
+                                        <Setter Property="BorderThickness" Value="0,2,0,0"/>
+                                        <Setter Property="BorderBrush" Value="#888888"/>
+                                    </DataTrigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#B3D4FF"/>
+                                        <Setter Property="Foreground" Value="#1A1A1A"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
                     </DataGrid>
 
-                    <!-- 帳票設定操作ボタン -->
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="4">
+                    <!-- 操作ボタン行 -->
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="4,4,4,2">
+                        <Button x:Name="BtnSaveCopies"
+                                Content="部数設定を保存"
+                                Width="130" Height="28"
+                                Margin="0,0,6,0"
+                                ToolTip="入力した印刷部数設定を DSPrt.json に保存します"
+                                Click="BtnSaveCopies_Click"/>
                         <Button x:Name="BtnChangeLayoutPrinter"
                                 Content="プリンター変更..."
                                 Width="130" Height="28"
                                 Margin="0,0,6,0"
                                 IsEnabled="False"
-                                ToolTip="選択した帳票のプリンターを変更します（DSPrt.json に保存）"
+                                ToolTip="選択行の帳票のプリンターを変更します（DSPrt.json に保存）"
                                 Click="BtnChangeLayoutPrinter_Click"/>
                         <Button x:Name="BtnTestPrint"
                                 Content="▶ テスト印刷"
@@ -160,7 +354,7 @@
                         <Button x:Name="BtnTestPreview"
                                 Content="👁 プレビュー確認"
                                 Width="130" Height="28"
-                                Margin="0,0,12,0"
+                                Margin="0,0,6,0"
                                 IsEnabled="False"
                                 ToolTip="選択した帳票をプレビューとして表示します（印刷しない）"
                                 Click="BtnTestPreview_Click"/>

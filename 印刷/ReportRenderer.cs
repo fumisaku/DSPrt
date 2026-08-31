@@ -76,10 +76,7 @@ namespace DSPrt.印刷
                     };
 
                 // ─── 対策1: ジャッジ票は1ページずつ個別 Prepare・印刷する ───────────
-                // 全ページを1つの Report に詰め込むと report.Prepare() が全ページ分を
-                // 一度にコンパイルするため、ページ数に比例して準備時間が急増する。
-                // 1ページ（= 1ジャッジ × 1種目）ずつ Prepare → PrintDirect することで
-                // 各 Prepare は常に1ページ分のみとなり大幅に高速化できる。
+                // ジャッジ票は配布先別部数印刷の対象外（SendTo は各ジャッジに1枚ずつ固定）
                 string dtUpper = layout.DataType.ToUpperInvariant()
                     .Replace("+", "_").Replace(" ", "_");
                 if (dtUpper == "DA_MASTER_DS_STATUS_JUDGE_SHEET")
@@ -91,15 +88,203 @@ namespace DSPrt.印刷
                 // 1. FastReport で帳票を準備
                 using var report = LoadAndPrepare(job, layout);
 
-                int copies = job.Copies > 0 ? job.Copies : effectiveLayout.Copies;
                 int pageCount = report.PreparedPages.Count;
-                _log.LogAdd($"[ReportRenderer] 印刷開始: jobId={job.JobId}, printer={effectiveLayout.PrinterName}, copies={copies}, pages={pageCount}", _log.INFO);
 
-                // 2. PNG を経由せず PrintDocument に直接描画して印刷
-                PrintDirect(report, effectiveLayout, copies, job.JobId);
-
-                _log.LogAdd($"[ReportRenderer] 印刷完了: jobId={job.JobId}", _log.INFO);
+                // ─── 配布先別部数印刷 ──────────────────────────────────────────────
+                // PrintCopyRows から該当行を解決し、配布先ごとに SendTo を書き換えて印刷する。
+                // 解決できない場合は従来通り job.Copies / layout.Copies で印刷する。
+                var copyAssignments = ResolveCopyAssignments(job, layout.LayoutId);
+                if (copyAssignments != null && copyAssignments.Count > 0)
+                {
+                    _log.LogAdd($"[ReportRenderer] 配布先別印刷開始: jobId={job.JobId}, printer={effectiveLayout.PrinterName}, pages={pageCount}, 配布先数={copyAssignments.Count}", _log.INFO);
+                    foreach (var (sendToLabel, roleCopies) in copyAssignments)
+                    {
+                        if (roleCopies <= 0) continue;
+                        _log.LogAdd($"[ReportRenderer]   配布先={sendToLabel}, 部数={roleCopies}", _log.INFO);
+                        // sendToOverride を PrintDirect に渡し、PrintPage イベント内で
+                        // GetPage() した直後に SendTo を上書きする（PreparedPages キャッシュ問題の回避）
+                        PrintDirect(report, effectiveLayout, roleCopies, job.JobId, sendToLabel);
+                    }
+                    _log.LogAdd($"[ReportRenderer] 配布先別印刷完了: jobId={job.JobId}", _log.INFO);
+                }
+                else
+                {
+                    // フォールバック: PrintCopyRows 未設定の場合は従来通り
+                    int copies = job.Copies > 0 ? job.Copies : effectiveLayout.Copies;
+                    _log.LogAdd($"[ReportRenderer] 印刷開始(フォールバック): jobId={job.JobId}, printer={effectiveLayout.PrinterName}, copies={copies}, pages={pageCount}", _log.INFO);
+                    PrintDirect(report, effectiveLayout, copies, job.JobId);
+                    _log.LogAdd($"[ReportRenderer] 印刷完了: jobId={job.JobId}", _log.INFO);
+                }
             });
+        }
+
+        // ─── 配布先別部数解決 ────────────────────────────────────────
+
+        /// <summary>
+        /// PrintCopyRows から指定 LayoutId に対応する配布先別部数リストを解決する。
+        /// job.Data と DataManager キャッシュから採点方式・ラウンド種別を判定し、
+        /// 最も合致する行の配布先別部数を返す。
+        /// 戻り値: (配布先ラベル, 部数) のリスト。該当行なしの場合は null。
+        /// </summary>
+        private List<(string label, int copies)>? ResolveCopyAssignments(PrintJob job, string layoutId)
+        {
+            var settings = AppSettings.Instance;
+            var rows = settings.PrintCopyRows;
+            if (rows == null || rows.Count == 0) return null;
+
+            // ─── LayoutId でフィルタ ────────────────────────────────────────
+            var candidates = rows.Where(r =>
+                string.Equals(r.LayoutId, layoutId, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (candidates.Count == 0) return null;
+
+            // ─── 採点方式・ラウンド種別を job.Data + DataManager から解決 ─────
+            string? scrMtd = null;
+            string? rndType = null;
+            ResolveRoundInfo(job, out scrMtd, out rndType);
+
+            // ─── 採点方式・ラウンドでさらに絞り込む ────────────────────────
+            PrintCopyRow? matched = null;
+            if (scrMtd != null && rndType != null)
+            {
+                matched = candidates.FirstOrDefault(r =>
+                    string.Equals(r.採点方式, scrMtd, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(r.ラウンド, rndType, StringComparison.OrdinalIgnoreCase));
+            }
+            if (matched == null && scrMtd != null)
+            {
+                matched = candidates.FirstOrDefault(r =>
+                    string.Equals(r.採点方式, scrMtd, StringComparison.OrdinalIgnoreCase));
+            }
+            if (matched == null)
+                matched = candidates.First();
+
+            _log.LogAdd($"[ReportRenderer] PrintCopyRow 解決: 採点方式={matched.採点方式}, ラウンド={matched.ラウンド}, 帳票名={matched.帳票名}", _log.INFO);
+
+            // ─── 配布先別部数リストを生成（部数 > 0 の配布先のみ含む）─────────
+            var labels = settings.PrintSettings.RoleLabels;
+            var result = new List<(string, int)>();
+            AddRoleCopy(result, labels.司会,    matched.司会);
+            AddRoleCopy(result, labels.掲示,    matched.掲示);
+            AddRoleCopy(result, labels.選手係,  matched.選手係);
+            AddRoleCopy(result, labels.本部,    matched.本部);
+            AddRoleCopy(result, labels.ステマネ, matched.ステマネ);
+            AddRoleCopy(result, labels.賞状,    matched.賞状);
+            AddRoleCopy(result, labels.保存,    matched.保存);
+            AddRoleCopy(result, labels.GM,      matched.GM);
+            AddRoleCopy(result, labels.レフリー, matched.レフリー);
+            AddRoleCopy(result, labels.予備1,   matched.予備1);
+            AddRoleCopy(result, labels.予備2,   matched.予備2);
+            return result;
+        }
+
+        private static void AddRoleCopy(List<(string, int)> list, string labelName, int copies)
+        {
+            if (copies > 0)
+                list.Add(($"【{labelName}】", copies));
+        }
+
+        /// <summary>
+        /// job.Data の KbnNo / RndNo と DataManager キャッシュから
+        /// 採点方式（"チェック法" / "順位法" / "AJS"）とラウンド種別（"予選" / "準決勝" / "決勝"）を解決する。
+        /// 解決できない場合は null を返す。
+        /// ラウンド種別の判定:
+        ///   DC_RndNo が DC_ROUNDs の最後 → "決勝"（下位決勝も含む）
+        ///   DC_RndNo が最後から2番目でそのラウンドに "準決勝" が含まれる → "準決勝"
+        ///   それ以外 → "予選"
+        /// </summary>
+        private void ResolveRoundInfo(PrintJob job, out string? scrMtd, out string? rndType)
+        {
+            scrMtd  = null;
+            rndType = null;
+
+            if (job.Data == null || _dataManager.DA_Master == null) return;
+
+            try
+            {
+                string jsonData = job.Data.ToJsonString();
+                var jd = Newtonsoft.Json.Linq.JObject.Parse(jsonData);
+                string kbnNo = jd["KbnNo"]?.ToString() ?? "";
+                string rndNo = jd["RndNo"]?.ToString() ?? "";
+                if (string.IsNullOrEmpty(kbnNo) || string.IsNullOrEmpty(rndNo)) return;
+
+                var daJson = Newtonsoft.Json.Linq.JObject.Parse(_dataManager.DA_Master.ToJsonString());
+                var kbunList = daJson["DB_KUBUNs"] as Newtonsoft.Json.Linq.JArray;
+                var kbnObj = kbunList?.OfType<Newtonsoft.Json.Linq.JObject>()
+                    .FirstOrDefault(k => k["DB_KbnNo"]?.ToString() == kbnNo);
+                if (kbnObj == null) return;
+
+                var rndList = kbnObj["DC_ROUNDs"] as Newtonsoft.Json.Linq.JArray;
+                if (rndList == null || rndList.Count == 0) return;
+
+                var rndObj = rndList.OfType<Newtonsoft.Json.Linq.JObject>()
+                    .FirstOrDefault(r => r["DC_RndNo"]?.ToString() == rndNo);
+                if (rndObj == null) return;
+
+                // ─── 採点方式を解決 ──────────────────────────────────────
+                string rawScrMtd = rndObj["DC_RndScrMtd"]?.ToString() ?? "";
+                // DS_Status の ScrMtdName が使えればより正確だが、DataManager からは
+                // DA_Master の DC_RndScrMtd を使う（"1"=チェック法, "2"=順位法, "3"=AJS 等）
+                scrMtd = rawScrMtd switch
+                {
+                    "1" => "チェック法",
+                    "2" => "順位法",
+                    "3" => "AJS",
+                    _   => null
+                };
+                // 文字列の場合はそのまま使う（将来拡張用）
+                if (scrMtd == null && !string.IsNullOrEmpty(rawScrMtd))
+                    scrMtd = rawScrMtd;
+
+                // ─── ラウンド種別を解決 ───────────────────────────────────
+                // ラウンド一覧の最後が決勝（下位決勝も含む）、
+                // そこから遡って準決勝・予選を判定する。
+                var rndNos = rndList.OfType<Newtonsoft.Json.Linq.JObject>()
+                    .Select(r => r["DC_RndNo"]?.ToString() ?? "")
+                    .ToList();
+                int rndIdx = rndNos.IndexOf(rndNo);
+                if (rndIdx < 0) return;
+
+                string rndName = rndObj["DC_RndName_J"]?.ToString() ?? "";
+
+                if (rndIdx == rndNos.Count - 1)
+                {
+                    // 最後のラウンド = 決勝（下位決勝も "決勝" に含める）
+                    rndType = "決勝";
+                }
+                else if (rndName.Contains("準決勝") || rndName.Contains("semi", StringComparison.OrdinalIgnoreCase))
+                {
+                    rndType = "準決勝";
+                }
+                else
+                {
+                    rndType = "予選";
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogAdd($"[ReportRenderer] ResolveRoundInfo エラー: {ex.Message}", _log.WARNING);
+            }
+        }
+
+        /// <summary>
+        /// PreparedPages.GetPage() で取得したページオブジェクト内の
+        /// SendTo TextObject のテキストを再帰的に書き換える。
+        /// PrintDirect の PrintPage イベント内で GetPage() した直後に呼ぶ。
+        /// </summary>
+        private static void SetSendToOnPage(object obj, string labelText)
+        {
+            if (obj is FastReport.TextObject txt && txt.Name == "SendTo")
+            {
+                txt.Text = labelText;
+                return;
+            }
+            if (obj is FastReport.IParent parent)
+            {
+                var children = new FastReport.ObjectCollection();
+                parent.GetChildObjects(children);
+                foreach (FastReport.Base child in children)
+                    SetSendToOnPage(child, labelText);
+            }
         }
 
         /// <summary>
@@ -316,21 +501,14 @@ namespace DSPrt.印刷
 
                 case "DA_MASTER_DS_STATUS_DV_RESULT_CHECK_SCORE":
                     // 得点一覧表（チェック法採点方式）
-                    // layoutId の末尾 "_PORT" で縦版、それ以外は横版
+                    // デフォルトはA4縦。種目数×ジャッジ数が縦版に入り切らない場合のみ自動的にA4横を使用。
                     {
                         var dummyChk = new System.Data.DataTable("CheckScoreDummy");
                         dummyChk.Columns.Add("Idx", typeof(int));
                         dummyChk.Rows.Add(0);
                         report.RegisterData(dummyChk, "CheckScoreDummy");
                     }
-                    if (job.LayoutId?.EndsWith("_PORT", StringComparison.OrdinalIgnoreCase) == true)
-                        // 縦版: A4縦 最大32行・最大30ジャッジ列/ページ（C06〜C39=34列）
-                        BindCheckScoreList(report, job.Data, pairsPerPage: 32,
-                            maxJudgeColsPerPage: 30, maxFrxCheckCols: 34);
-                    else
-                        // 横版: A4横 最大20行・最大65ジャッジ列/ページ（C06〜C74=69列）
-                        BindCheckScoreList(report, job.Data, pairsPerPage: 20,
-                            maxJudgeColsPerPage: 65, maxFrxCheckCols: 69);
+                    BindCheckScoreList(report, job.Data);
                     break;
 
                 case "DA_MASTER_DS_STATUS_DV_RESULT_SKATING_SCORE":
@@ -423,6 +601,16 @@ namespace DSPrt.印刷
         ///   - フォントも含めてすべて物理 DPI に合わせてスケールされるため正確な印刷が得られる
         /// </summary>
         private void PrintDirect(Report report, LayoutSetting layout, int copies, string jobId)
+            => PrintDirect(report, layout, copies, jobId, null);
+
+        /// <summary>
+        /// sendToOverride が指定された場合、各ページの PrintPage イベント内で
+        /// GetPage() した直後に SendTo TextObject のテキストを上書きする。
+        /// PreparedPages はページをシリアライズ保管するため GetPage() のたびに新しいインスタンスが
+        /// 返る場合があり、SetSendToLabel() で事前に書き換えても次の GetPage() で失われる可能性がある。
+        /// このオーバーロードはその問題を回避するために存在する。
+        /// </summary>
+        private void PrintDirect(Report report, LayoutSetting layout, int copies, string jobId, string? sendToOverride)
         {
             int pageIndex = 0;
             int pageCount = report.PreparedPages.Count;
@@ -469,6 +657,10 @@ namespace DSPrt.印刷
                 if (pageIndex >= pageCount) { e.HasMorePages = false; return; }
 
                 var page = report.PreparedPages.GetPage(pageIndex++);
+
+                // SendTo ラベルを上書き（配布先別印刷時）
+                if (sendToOverride != null)
+                    SetSendToOnPage(page, sendToOverride);
 
                 // IsPrinting=true のとき TextObject のフォントサイズが scaleX でスケールされない。
                 // GetPage() で取得した PreparedPage の TextObject を scaleX 倍に補正する。
@@ -2296,7 +2488,7 @@ namespace DSPrt.印刷
                 // ページ複製済みの場合、2ページ目以降の名前は _P02, _P03... サフィックス付き
                 for (int pg = 0; pg < pageCount; pg++)
                 {
-                    string suffix = pg == 0 ? "" : $"_P{pg:D2}";
+                    string suffix = pg == 0 ? "" : $"_P{pg + 1:D2}";
                     SetPageDataRows(report, playerRows, pg, RowsPerPage, danceCount, suffix);
                 }
 
@@ -4380,12 +4572,22 @@ namespace DSPrt.印刷
         ///   列方向: 1ページ最大65列（C06〜C70）、それ超える場合は次ページへ展開。
         ///   ただし通常5種目×13ジャッジ=65列が上限のため2ページで収まる想定。
         /// </summary>
-        private void BindCheckScoreList(Report report, JsonNode? jobData,
-            int pairsPerPage = 16, int maxJudgeColsPerPage = 65, int maxFrxCheckCols = 69)
+        private void BindCheckScoreList(Report report, JsonNode? jobData)
         {
-            int PairsPerPage        = pairsPerPage;
-            int MaxJudgeColsPerPage = maxJudgeColsPerPage;
-            int MaxFrxCheckCols     = maxFrxCheckCols;
+            // 縦版（A4縦）の収まる閾値
+            // 縦版: 最大32行・最大30ジャッジ列/ページ（C06〜C39 = 34列）
+            // 横版: 最大20行・最大65ジャッジ列/ページ（C06〜C74 = 69列）
+            const int PortPairsPerPage        = 32;
+            const int PortMaxJudgeColsPerPage  = 30;
+            const int PortMaxFrxCheckCols      = 34;
+            const int LandPairsPerPage         = 20;
+            const int LandMaxJudgeColsPerPage  = 65;
+            const int LandMaxFrxCheckCols      = 69;
+
+            // 縦横は後でデータ解析後に決定。まず横版で初期化しておく。
+            int PairsPerPage        = LandPairsPerPage;
+            int MaxJudgeColsPerPage = LandMaxJudgeColsPerPage;
+            int MaxFrxCheckCols     = LandMaxFrxCheckCols;
 
             try
             {
@@ -4715,6 +4917,58 @@ namespace DSPrt.印刷
                 int totalJudgeCols = checkCols.Count(c => c.danceIdx >= 0);
                 int totalCheckCols = checkCols.Count;  // セパレータ込みの総列数
 
+                // ── 縦横自動判定 ─────────────────────────────────────────────────────
+                // デフォルトはA4縦。縦横の選択はページ幅（ジャッジ列数）のみで判定する。
+                // 出場者数が多い場合でも複数ページに分割して印刷できるため、行数は判定条件に含めない。
+                bool usePortrait = totalJudgeCols <= PortMaxJudgeColsPerPage;
+                PairsPerPage        = usePortrait ? PortPairsPerPage        : LandPairsPerPage;
+                MaxJudgeColsPerPage = usePortrait ? PortMaxJudgeColsPerPage : LandMaxJudgeColsPerPage;
+                MaxFrxCheckCols     = usePortrait ? PortMaxFrxCheckCols     : LandMaxFrxCheckCols;
+                _log.LogAdd(
+                    $"[ReportRenderer] BindCheckScoreList 縦横判定: totalEntries={totalEntries}, " +
+                    $"totalJudgeCols={totalJudgeCols} → {(usePortrait ? "A4縦(Portrait)" : "A4横(Landscape)")}",
+                    _log.INFO);
+
+                // 縦版が選択された場合は縦版 .frx を再ロード
+                // CHECK_SCORE_LIST_A4_PORT エントリの FrxPath を DSPrt.json から取得する
+                if (usePortrait)
+                {
+                    var portLayout = AppSettings.Instance.Layouts
+                        .Find(l => string.Equals(l.LayoutId, "CHECK_SCORE_LIST_A4_PORT",
+                            System.StringComparison.OrdinalIgnoreCase));
+                    if (portLayout != null && !string.IsNullOrWhiteSpace(portLayout.FrxPath))
+                    {
+                        string portFrxPath = ResolveFrxPath(portLayout.FrxPath);
+                        if (File.Exists(portFrxPath))
+                        {
+                            report.Load(portFrxPath);
+                            // frx 再ロード後は RegisterData がクリアされるため CheckScoreDummy を再登録する
+                            var dummyChkR = new System.Data.DataTable("CheckScoreDummy");
+                            dummyChkR.Columns.Add("Idx", typeof(int));
+                            dummyChkR.Rows.Add(0);
+                            report.RegisterData(dummyChkR, "CheckScoreDummy");
+                            _log.LogAdd($"[ReportRenderer] BindCheckScoreList: 縦版 .frx 再ロード → {portFrxPath}", _log.INFO);
+                        }
+                        else
+                        {
+                            _log.LogAdd($"[ReportRenderer] BindCheckScoreList: 縦版 .frx が見つからないため横版で印刷 → {portFrxPath}", _log.WARNING);
+                            // 縦版frxがない場合は横版パラメータにフォールバック
+                            usePortrait         = false;
+                            PairsPerPage        = LandPairsPerPage;
+                            MaxJudgeColsPerPage = LandMaxJudgeColsPerPage;
+                            MaxFrxCheckCols     = LandMaxFrxCheckCols;
+                        }
+                    }
+                    else
+                    {
+                        _log.LogAdd("[ReportRenderer] BindCheckScoreList: CHECK_SCORE_LIST_A4_PORT レイアウト未登録、横版で印刷", _log.WARNING);
+                        usePortrait         = false;
+                        PairsPerPage        = LandPairsPerPage;
+                        MaxJudgeColsPerPage = LandMaxJudgeColsPerPage;
+                        MaxFrxCheckCols     = LandMaxFrxCheckCols;
+                    }
+                }
+
                 // ── 出場者リストを背番号昇順で構築 ──────────────────────────────────
                 var playerRows = new List<(
                     string bibNo,
@@ -4761,7 +5015,10 @@ namespace DSPrt.印刷
                     return string.Compare(a.bibNo, b.bibNo, StringComparison.Ordinal);
                 });
 
-                string upText = $"UP数 {rndUpPln} 組" + (isShuffle ? " シャッフル" : "");
+                // UP数: 次ラウンドにUPした実績人数を優先表示。次ラウンドがない・未確定の場合は予定数を表示。
+                int actualUpCount = nextRndAssignedPlayerNos.Count;
+                int upCount = actualUpCount > 0 ? actualUpCount : rndUpPln;
+                string upText = $"UP数 {upCount} 組" + (isShuffle ? " シャッフル" : "");
 
                 // ── 列ページ分割: 種目の境界で区切る ────────────────────────────────
                 // 種目の途中でページを切らないよう、MaxJudgeColsPerPage 以内に収まる
@@ -4961,14 +5218,10 @@ namespace DSPrt.印刷
             string suffix)
         {
             var blNone = FastReport.BorderLines.None;
-            var blTop  = FastReport.BorderLines.Top;
-            var blBot  = FastReport.BorderLines.Bottom;
-            var blLeft = FastReport.BorderLines.Left;
-            var blRight= FastReport.BorderLines.Right;
-            var blTB   = blTop | blBot;
-            var blLTB  = blLeft | blTop | blBot;
-            var blRTB  = blRight | blTop | blBot;
             var blAll  = FastReport.BorderLines.All;
+            var blTB   = FastReport.BorderLines.Top | FastReport.BorderLines.Bottom;
+            var blLTB  = FastReport.BorderLines.Left  | FastReport.BorderLines.Top | FastReport.BorderLines.Bottom;
+            var blRTB  = FastReport.BorderLines.Right | FastReport.BorderLines.Top | FastReport.BorderLines.Bottom;
 
             for (int slot = 0; slot < maxFrxCheckCols; slot++)
             {
@@ -4998,18 +5251,12 @@ namespace DSPrt.印刷
                     continue;
                 }
 
-                // このジャッジ列の罫線を決定
-                bool isFirst = judgeIdx == 0;  // 種目先頭
-                // 種目末尾判定: 次の checkCols がセパレータか範囲外か
-                int nextIdx = colIdx + 1;
-                bool isLast = nextIdx >= colEnd || nextIdx >= checkCols.Count
+                // 種目先頭・末尾の判定
+                bool isFirst = judgeIdx == 0;
+                int  nextIdx = colIdx + 1;
+                bool isLast  = nextIdx >= colEnd || nextIdx >= checkCols.Count
                     || checkCols[nextIdx].danceIdx < 0
                     || checkCols[nextIdx].danceIdx != danceIdx;
-
-                FastReport.BorderLines hdBorder = blTB;
-                if (isFirst && isLast) hdBorder = blAll;
-                else if (isFirst)      hdBorder = blLTB;
-                else if (isLast)       hdBorder = blRTB;
 
                 // RowH1（種目記号）: 種目先頭列にのみ種目記号を表示
                 if (isFirst)
@@ -5017,13 +5264,13 @@ namespace DSPrt.印刷
                     // ColSpan をジャッジ数に設定（先頭列のTableCellを操作）
                     // ただし FRX の残り列数（maxFrxCheckCols - slot）を超えないようクランプする
                     int judgeCount = judgesPerDance[danceIdx].Count;
-                    int remainingFrxCols = maxFrxCheckCols - slot;   // このスロット以降に残るFRX列数
+                    int remainingFrxCols = maxFrxCheckCols - slot;
                     int colSpanValue = Math.Min(judgeCount, remainingFrxCols);
                     var hdCell = report.FindObject(hdCellName) as FastReport.Table.TableCell;
                     if (hdCell != null)
                         hdCell.ColSpan = colSpanValue;
 
-                    // ColSpan で複数列を1セルが覆うため、Left/Right 両方の罫線が必要
+                    // ColSpan で複数列を1セルが覆うため Left/Right 両方の罫線が必要
                     SetTextObjectDirect(report, hdName, dsCodes[danceIdx], blAll);
                 }
                 else
@@ -5032,13 +5279,13 @@ namespace DSPrt.印刷
                     SetTextObjectDirect(report, hdName, "", blNone);
                 }
 
-                // RowH2（ジャッジ記号）
-                string judgeSymbol = judgeIdx < judgesPerDance[danceIdx].Count
-                    ? judgesPerDance[danceIdx][judgeIdx] : "";
+                // RowH2（ジャッジ記号）: 種目先頭にLeft・末尾にRight・常にTop/Bottom
                 FastReport.BorderLines hjBorder = blTB;
                 if (isFirst && isLast) hjBorder = blAll;
                 else if (isFirst)      hjBorder = blLTB;
                 else if (isLast)       hjBorder = blRTB;
+                string judgeSymbol = judgeIdx < judgesPerDance[danceIdx].Count
+                    ? judgesPerDance[danceIdx][judgeIdx] : "";
                 SetTextObjectDirect(report, hjName, judgeSymbol, hjBorder);
             }
         }
@@ -5063,14 +5310,10 @@ namespace DSPrt.印刷
         {
             int startIdx  = rowPageIndex * pairsPerPage;
             var blNone    = FastReport.BorderLines.None;
-            var blTop     = FastReport.BorderLines.Top;
-            var blBot     = FastReport.BorderLines.Bottom;
-            var blLeft    = FastReport.BorderLines.Left;
-            var blRight   = FastReport.BorderLines.Right;
-            var blTB      = blTop | blBot;
-            var blLTB     = blLeft | blTop | blBot;
-            var blRTB     = blRight | blTop | blBot;
             var blAll     = FastReport.BorderLines.All;
+            var blTB      = FastReport.BorderLines.Top | FastReport.BorderLines.Bottom;
+            var blLTB     = FastReport.BorderLines.Left  | FastReport.BorderLines.Top | FastReport.BorderLines.Bottom;
+            var blRTB     = FastReport.BorderLines.Right | FastReport.BorderLines.Top | FastReport.BorderLines.Bottom;
             var lightBlue = System.Drawing.Color.FromArgb(0x00, 0xFF, 0xFF);
 
             for (int slot = 1; slot <= pairsPerPage; slot++)
@@ -5099,7 +5342,7 @@ namespace DSPrt.印刷
                             SetTextObjectFill(report, $"DR_{nn}_C{c:D2}{suffix}", lightBlue);
                     }
 
-                    // チェック列（C06〜）
+                    // チェック列（C06〜）: 上下罫線のみ（縦罫線は不要、隣接セルとの重複も発生しない）
                     for (int slotJ = 0; slotJ < maxFrxCheckCols; slotJ++)
                     {
                         int colIdx = colStart + slotJ;
@@ -5121,13 +5364,12 @@ namespace DSPrt.印刷
                             continue;
                         }
 
-                        // 罫線判定: 種目先頭でLeft、種目末尾でRight、Top/Bottom常時あり
+                        // 罫線: 種目先頭にLeft・末尾にRight・常にTop/Bottom
                         bool isFirst = judgeIdx == 0;
-                        int  nextIdx = colIdx + 1;
-                        bool isLast  = nextIdx >= colEnd || nextIdx >= checkCols.Count
-                            || checkCols[nextIdx].danceIdx < 0
-                            || checkCols[nextIdx].danceIdx != danceIdx;
-
+                        int  nextColIdx = colIdx + 1;
+                        bool isLast  = nextColIdx >= colEnd || nextColIdx >= checkCols.Count
+                            || checkCols[nextColIdx].danceIdx < 0
+                            || checkCols[nextColIdx].danceIdx != danceIdx;
                         FastReport.BorderLines border = blTB;
                         if (isFirst && isLast) border = blAll;
                         else if (isFirst)      border = blLTB;

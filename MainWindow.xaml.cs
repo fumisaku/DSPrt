@@ -385,35 +385,254 @@ namespace DSPrt
 
         // ─── 帳票設定タブ ────────────────────────────────────────────
 
+        // 配布先ラベル TextBox の配列（index 0〜10 = 司会〜予備2）
+        private TextBox[] _roleLabelBoxes = Array.Empty<TextBox>();
+
+        private void InitRoleLabelBoxes()
+        {
+            _roleLabelBoxes = new[]
+            {
+                TxtLabel0, TxtLabel1, TxtLabel2, TxtLabel3, TxtLabel4,
+                TxtLabel5, TxtLabel6, TxtLabel7, TxtLabel8, TxtLabel9, TxtLabel10
+            };
+        }
+
+        /// <summary>AppSettings.PrintSettings.RoleLabels の内容を TextBox に反映する</summary>
+        private void LoadRoleLabels()
+        {
+            if (_roleLabelBoxes.Length == 0) return;
+            var rl = AppSettings.Instance.PrintSettings.RoleLabels;
+            string[] vals = {
+                rl.司会, rl.掲示, rl.選手係, rl.本部, rl.ステマネ,
+                rl.賞状, rl.保存, rl.GM, rl.レフリー, rl.予備1, rl.予備2
+            };
+            for (int i = 0; i < _roleLabelBoxes.Length; i++)
+                _roleLabelBoxes[i].Text = vals[i];
+        }
+
+        /// <summary>TextBox の現在テキストを AppSettings に書き戻す（保存はしない）</summary>
+        private void ApplyRoleLabelsToSettings()
+        {
+            if (_roleLabelBoxes.Length == 0) return;
+            var rl = AppSettings.Instance.PrintSettings.RoleLabels;
+            rl.司会     = _roleLabelBoxes[0].Text.Trim();
+            rl.掲示     = _roleLabelBoxes[1].Text.Trim();
+            rl.選手係   = _roleLabelBoxes[2].Text.Trim();
+            rl.本部     = _roleLabelBoxes[3].Text.Trim();
+            rl.ステマネ = _roleLabelBoxes[4].Text.Trim();
+            rl.賞状     = _roleLabelBoxes[5].Text.Trim();
+            rl.保存     = _roleLabelBoxes[6].Text.Trim();
+            rl.GM       = _roleLabelBoxes[7].Text.Trim();
+            rl.レフリー = _roleLabelBoxes[8].Text.Trim();
+            rl.予備1    = _roleLabelBoxes[9].Text.Trim();
+            rl.予備2    = _roleLabelBoxes[10].Text.Trim();
+        }
+
+        // ── ヘッダーTextBox イベント ──
+
+        /// <summary>ダブルクリックで編集モードに入る</summary>
+        private void RoleLabelTextBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is not TextBox tb) return;
+            tb.IsReadOnly = false;
+            tb.Background = SystemColors.WindowBrush;
+            tb.BorderThickness = new Thickness(1);
+            tb.SelectAll();
+            tb.Focus();
+            e.Handled = true;
+        }
+
+        /// <summary>Enter で確定 / Escape でキャンセル</summary>
+        private void RoleLabelTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (sender is not TextBox tb) return;
+            if (e.Key == System.Windows.Input.Key.Return)
+            {
+                CommitRoleLabel(tb);
+                e.Handled = true;
+            }
+            else if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                // 元の値に戻す
+                LoadRoleLabels();
+                EndRoleLabelEdit(tb);
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>フォーカスが外れたら確定</summary>
+        private void RoleLabelTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox tb && !tb.IsReadOnly)
+                CommitRoleLabel(tb);
+        }
+
+        private void CommitRoleLabel(TextBox tb)
+        {
+            ApplyRoleLabelsToSettings();
+            EndRoleLabelEdit(tb);
+        }
+
+        private static void EndRoleLabelEdit(TextBox tb)
+        {
+            tb.IsReadOnly = true;
+            tb.Background = Brushes.Transparent;
+            tb.BorderThickness = new Thickness(0);
+        }
+
+        // グリッドバインド用 — PrintCopyRow に IsFirstInGroup を追加したラッパー
+        private class CopiesGridRow : PrintCopyRow
+        {
+            /// <summary>同じ採点方式の先頭行か（グループ区切り線表示用）</summary>
+            public bool IsFirstInGroup { get; set; }
+        }
+
+        private readonly System.Collections.ObjectModel.ObservableCollection<CopiesGridRow> _copiesRows = new();
+
+        /// <summary>印刷部数設定の全行定義（Excelの印刷部数サンプルと同じ28行）</summary>
+        private static readonly (string 採点方式, string ラウンド, string 帳票名, string LayoutId)[] _masterRows =
+        {
+            ("チェック法", "予選",   "出場者連絡票",          "PLAYER_NOTICE_HORIZONTAL_A4"),
+            ("チェック法", "予選",   "出場者ヒート表",        "PLAYER_HEAT_VERTICAL_A4"),
+            ("チェック法", "予選",   "得点一覧表_チェック法", "CHECK_SCORE_LIST_A4"),
+            ("チェック法", "準決勝", "出場者連絡票",          "PLAYER_NOTICE_HORIZONTAL_A4"),
+            ("チェック法", "準決勝", "準決勝進出者名簿",      "SEMI_FINAL_ENTRY_LIST_A4"),
+            ("チェック法", "準決勝", "出場者ヒート表",        "PLAYER_HEAT_VERTICAL_A4"),
+            ("チェック法", "準決勝", "得点一覧表_チェック法", "CHECK_SCORE_LIST_A4"),
+            ("順位法",     "予選",   "出場者連絡票",          "PLAYER_NOTICE_HORIZONTAL_A4"),
+            ("順位法",     "予選",   "出場者ヒート表",        "PLAYER_HEAT_VERTICAL_A4"),
+            ("順位法",     "予選",   "得点一覧表_順位法",     "RANK_SCORE_LIST_A4"),
+            ("順位法",     "準決勝", "出場者連絡票",          "PLAYER_NOTICE_HORIZONTAL_A4"),
+            ("順位法",     "準決勝", "出場者ヒート表",        "PLAYER_HEAT_VERTICAL_A4"),
+            ("順位法",     "準決勝", "得点一覧表_順位法",     "RANK_SCORE_LIST_A4"),
+            ("順位法",     "決勝",   "決勝進出者名簿",        "FINAL_ENTRY_LIST_A4"),
+            ("順位法",     "決勝",   "得点一覧表_順位法",     "RANK_SCORE_LIST_A4"),
+            ("順位法",     "決勝",   "決勝入賞者名簿",        "FINAL_AWARD_LIST_A4"),
+            ("AJS",        "予選",   "出場者連絡票",          "PLAYER_NOTICE_HORIZONTAL_A4"),
+            ("AJS",        "予選",   "出場者ヒート表",        "PLAYER_HEAT_VERTICAL_A4"),
+            ("AJS",        "予選",   "得点一覧表_AJS",        "AJS_SCORE_LIST_A4"),
+            ("AJS",        "準決勝", "出場者連絡票",          "PLAYER_NOTICE_HORIZONTAL_A4"),
+            ("AJS",        "準決勝", "準決勝進出者名簿",      "SEMI_FINAL_ENTRY_LIST_A4"),
+            ("AJS",        "準決勝", "出場者ヒート表",        "PLAYER_HEAT_VERTICAL_A4"),
+            ("AJS",        "準決勝", "得点一覧表_AJS",        "AJS_SCORE_LIST_A4"),
+            ("AJS",        "決勝",   "出場者連絡票",          "PLAYER_NOTICE_AJS_FINAL_A4"),
+            ("AJS",        "決勝",   "決勝進出者名簿",        "FINAL_ENTRY_LIST_A4"),
+            ("AJS",        "決勝",   "出場者ヒート表",        "PLAYER_HEAT_VERTICAL_A4"),
+            ("AJS",        "決勝",   "得点一覧表_AJS",        "AJS_SCORE_LIST_A4"),
+            ("AJS",        "決勝",   "決勝入賞者名簿",        "FINAL_AWARD_LIST_A4"),
+        };
+
         private void RefreshLayoutTab()
         {
             Dispatcher.Invoke(() =>
             {
-                // デフォルトプリンターは AppSettings の値を表示する。
-                // 未設定の場合は OS のデフォルトプリンターをフォールバック表示する。
                 string appDefault = AppSettings.Instance.PrintSettings.DefaultPrinterName;
                 TxtDefaultPrinter.Text = !string.IsNullOrWhiteSpace(appDefault)
                     ? appDefault
                     : (_printService?.PrinterController.GetDefaultPrinterName() ?? string.Empty);
 
-                LayoutGrid.ItemsSource = _printService != null
-                    ? _printService.Registry.All.ToList()
-                    : AppSettings.Instance.Layouts;
+                // ヘッダーTextBox が生成済みなら初期化してラベルを反映する
+                if (_roleLabelBoxes.Length == 0)
+                    InitRoleLabelBoxes();
+                LoadRoleLabels();
+
+                RefreshCopiesGrid();
             });
         }
 
-        private void LayoutGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void RefreshCopiesGrid()
         {
-            bool hasSelection = LayoutGrid.SelectedItem is LayoutSetting;
-            BtnOpenDesigner.IsEnabled = hasSelection;
-            BtnTestPrint.IsEnabled = hasSelection;
-            BtnTestPreview.IsEnabled = hasSelection;
-            BtnChangeLayoutPrinter.IsEnabled = hasSelection;
+            _copiesRows.Clear();
+            var saved = AppSettings.Instance.PrintCopyRows;
+            string? prevSm = null;
+
+            foreach (var (sm, rn, name, lid) in _masterRows)
+            {
+                var savedRow = saved.FirstOrDefault(r =>
+                    r.採点方式 == sm && r.ラウンド == rn &&
+                    r.帳票名 == name && r.LayoutId == lid);
+
+                _copiesRows.Add(new CopiesGridRow
+                {
+                    採点方式       = sm,
+                    ラウンド       = rn,
+                    帳票名         = name,
+                    LayoutId       = lid,
+                    IsFirstInGroup = (sm != prevSm),
+                    司会     = savedRow?.司会     ?? 0,
+                    掲示     = savedRow?.掲示     ?? 0,
+                    選手係   = savedRow?.選手係   ?? 0,
+                    本部     = savedRow?.本部     ?? 0,
+                    ステマネ = savedRow?.ステマネ ?? 0,
+                    賞状     = savedRow?.賞状     ?? 0,
+                    保存     = savedRow?.保存     ?? 0,
+                    GM       = savedRow?.GM       ?? 0,
+                    レフリー = savedRow?.レフリー ?? 0,
+                    予備1    = savedRow?.予備1    ?? 0,
+                    予備2    = savedRow?.予備2    ?? 0,
+                });
+                prevSm = sm;
+            }
+
+            CopiesGrid.ItemsSource = _copiesRows;
+        }
+
+        private void CopiesGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            bool hasRow = CopiesGrid.SelectedItem is CopiesGridRow;
+            BtnChangeLayoutPrinter.IsEnabled = hasRow;
+            BtnTestPrint.IsEnabled = hasRow;
+            BtnTestPreview.IsEnabled = hasRow;
+            BtnOpenDesigner.IsEnabled = hasRow;
+        }
+
+        private void BtnSaveCopies_Click(object sender, RoutedEventArgs e)
+        {
+            CopiesGrid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true);
+
+            // ヘッダーラベルを設定に反映してから保存
+            ApplyRoleLabelsToSettings();
+
+            AppSettings.Instance.PrintCopyRows = _copiesRows
+                .Select(r => new PrintCopyRow
+                {
+                    採点方式  = r.採点方式,
+                    ラウンド  = r.ラウンド,
+                    帳票名    = r.帳票名,
+                    LayoutId  = r.LayoutId,
+                    司会     = r.司会,
+                    掲示     = r.掲示,
+                    選手係   = r.選手係,
+                    本部     = r.本部,
+                    ステマネ = r.ステマネ,
+                    賞状     = r.賞状,
+                    保存     = r.保存,
+                    GM       = r.GM,
+                    レフリー = r.レフリー,
+                    予備1    = r.予備1,
+                    予備2    = r.予備2,
+                })
+                .ToList();
+
+            AppSettings.Save();
+            AddLog("印刷部数設定保存完了");
+            MessageBox.Show("印刷部数設定を保存しました。", "保存完了", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private LayoutSetting? GetLayoutSettingForSelected()
+        {
+            if (CopiesGrid.SelectedItem is not CopiesGridRow row) return null;
+            var layouts = _printService != null
+                ? _printService.Registry.All.ToList()
+                : AppSettings.Instance.Layouts;
+            return layouts.FirstOrDefault(l =>
+                string.Equals(l.LayoutId, row.LayoutId, StringComparison.OrdinalIgnoreCase));
         }
 
         private void BtnOpenDesigner_Click(object sender, RoutedEventArgs e)
         {
-            if (LayoutGrid.SelectedItem is not LayoutSetting layout) return;
+            var layout = GetLayoutSettingForSelected();
+            if (layout == null) return;
 
             string frxPath = ResolveFrxPath(layout.FrxPath);
             if (!System.IO.File.Exists(frxPath))
@@ -457,7 +676,8 @@ namespace DSPrt
 
         private void BtnChangeLayoutPrinter_Click(object sender, RoutedEventArgs e)
         {
-            if (LayoutGrid.SelectedItem is not LayoutSetting layout) return;
+            var layout = GetLayoutSettingForSelected();
+            if (layout == null) return;
 
             var selected = ShowPrinterSelectDialog($"「{layout.LayoutId}」のプリンターを選択してください");
             if (selected == null) return;
@@ -497,13 +717,15 @@ namespace DSPrt
 
         private async void BtnTestPrint_Click(object sender, RoutedEventArgs e)
         {
-            if (LayoutGrid.SelectedItem is not LayoutSetting layout) return;
+            var layout = GetLayoutSettingForSelected();
+            if (layout == null) return;
             await RunTestJobAsync(layout, previewOnly: false);
         }
 
         private async void BtnTestPreview_Click(object sender, RoutedEventArgs e)
         {
-            if (LayoutGrid.SelectedItem is not LayoutSetting layout) return;
+            var layout = GetLayoutSettingForSelected();
+            if (layout == null) return;
             await RunTestJobAsync(layout, previewOnly: true);
         }
 
@@ -649,7 +871,7 @@ namespace DSPrt
             }
             finally
             {
-                bool hasSel = LayoutGrid.SelectedItem is LayoutSetting;
+                bool hasSel = CopiesGrid.SelectedItem is CopiesGridRow;
                 BtnTestPrint.IsEnabled = hasSel;
                 BtnTestPreview.IsEnabled = hasSel;
                 BtnChangeLayoutPrinter.IsEnabled = hasSel;

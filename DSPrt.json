@@ -18,11 +18,25 @@
     "AwardPrinterName": "",
     "SpoolDirectory": "./Spool",
     "MaxQueueSize": 50,
-    "JobLogMaxCount": 200
+    "JobLogMaxCount": 200,
+    "RoleLabels": {
+      "司会": "司会",
+      "掲示": "掲示",
+      "選手係": "選手係",
+      "本部": "本部",
+      "ステマネ": "ステマネ",
+      "賞状": "賞状",
+      "保存": "保存",
+      "GM": "GM",
+      "レフリー": "レフリー",
+      "予備1": "予備1",
+      "予備2": "予備2"
+    }
   },
   "Layouts": [
     {
       "LayoutId": "PLAYER_LIST_A4",
+      "DisplayName": "選手名簿",
       "FrxPath": "./Reports/PlayerList_A4.frx",
       "DataType": "DA_Master",
       "PrinterName": "",
@@ -32,6 +46,7 @@
     },
     {
       "LayoutId": "KBNLIST_A4",
+      "DisplayName": "区分一覧",
       "FrxPath": "./Reports/KbnList_A4.frx",
       "DataType": "DA_Master",
       "PrinterName": "",
@@ -41,6 +56,7 @@
     },
     {
       "LayoutId": "CHECK_SHEET_A4",
+      "DisplayName": "チェックシート",
       "FrxPath": "./Reports/CheckSheet_A4.frx",
       "DataType": "DA_Master",
       "PrinterName": "",
@@ -50,6 +66,7 @@
     },
     {
       "LayoutId": "JUDGE_TEAM_A4",
+      "DisplayName": "ジャッジチーム表",
       "FrxPath": "./Reports/JudgeTeam_A4.frx",
       "DataType": "DA_Master",
       "PrinterName": "",
@@ -59,6 +76,7 @@
     },
     {
       "LayoutId": "JDSF_FEE_A4",
+      "DisplayName": "JDSF登録料",
       "FrxPath": "./Reports/JdsfFee_A4.frx",
       "DataType": "DA_Master",
       "PrinterName": "",
@@ -68,6 +86,7 @@
     },
     {
       "LayoutId": "HEAT_UP_LIST_A4",
+      "DisplayName": "ヒートUP一覧",
       "FrxPath": "./Reports/HeatUpList_A4.frx",
       "DataType": "DS_Status",
       "PrinterName": "",
@@ -77,6 +96,7 @@
     },
     {
       "LayoutId": "TIMETABLE_A4",
+      "DisplayName": "タイムテーブル",
       "FrxPath": "./Reports/Timetable_A4.frx",
       "DataType": "DS_Status",
       "PrinterName": "",
@@ -86,6 +106,7 @@
     },
     {
       "LayoutId": "JUDGE_ASSIGN_A4",
+      "DisplayName": "ジャッジ割当表",
       "FrxPath": "./Reports/JudgeAssign_A4.frx",
       "DataType": "DS_Status",
       "PrinterName": "",
@@ -95,6 +116,7 @@
     },
     {
       "LayoutId": "FINAL_ENTRY_A4",
+      "DisplayName": "決勝出場者一覧",
       "FrxPath": "./Reports/FinalEntry_A4.frx",
       "DataType": "DS_Status",
       "PrinterName": "",
@@ -104,6 +126,7 @@
     },
     {
       "LayoutId": "RESULT_LIST_A4",
+      "DisplayName": "結果一覧",
       "FrxPath": "./Reports/ResultList_A4.frx",
       "DataType": "DV_Result",
       "PrinterName": "",
@@ -113,6 +136,7 @@
     },
     {
       "LayoutId": "FINAL_RESULT_A4",
+      "DisplayName": "決勝結果",
       "FrxPath": "./Reports/FinalResult_A4.frx",
       "DataType": "DV_Result",
       "PrinterName": "",
@@ -122,6 +146,7 @@
     },
     {
       "LayoutId": "SKATING_RESULT_A4",
+      "DisplayName": "スケーティング結果",
       "FrxPath": "./Reports/SkatingResult_A4.frx",
       "DataType": "DV_Result",
       "PrinterName": "",
@@ -131,6 +156,7 @@
     },
     {
       "LayoutId": "PLAYER_NOTICE_A4",
+      "DisplayName": "出場者連絡票（旧）",
       "FrxPath": "./Reports/PlayerNotice_A4.frx",
       "DataType": "DA_Master+DS_Status",
       "PrinterName": "",
@@ -140,6 +166,7 @@
     },
     {
       "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4",
+      "DisplayName": "出場者連絡票",
       "FrxPath": "./Reports/ヒート表_横.frx",
       "DataType": "DA_Master+DS_Status+Horizontal",
       "PrinterName": "",
@@ -149,6 +176,7 @@
     },
     {
       "LayoutId": "PLAYER_HEAT_VERTICAL_A4",
+      "DisplayName": "出場者ヒート表",
       "FrxPath": "./Reports/出場者ヒート表_縦.frx",
       "DataType": "DA_Master+DS_Status+Vertical",
       "PrinterName": "",
@@ -158,6 +186,7 @@
     },
     {
       "LayoutId": "PLAYER_NOTICE_AJS_FINAL_A4",
+      "DisplayName": "出場者連絡票(AJS決勝用)",
       "FrxPath": "./Reports/出場者連絡票_AJS決勝.frx",
       "DataType": "DA_Master+DS_Status+AJS_Final",
       "PrinterName": "",
@@ -167,6 +196,7 @@
     },
     {
       "LayoutId": "FINAL_ENTRY_LIST_A4",
+      "DisplayName": "決勝進出者名簿",
       "FrxPath": "./Reports/決勝進出者名簿_横.frx",
       "DataType": "DA_Master+DS_Status+Final_Entry",
       "PrinterName": "",
@@ -176,6 +206,7 @@
     },
     {
       "LayoutId": "SEMI_FINAL_ENTRY_LIST_A4",
+      "DisplayName": "準決勝進出者名簿",
       "FrxPath": "./Reports/準決勝進出者名簿_縦.frx",
       "DataType": "DA_Master+DS_Status+Semi_Final_Entry",
       "PrinterName": "",
@@ -185,6 +216,7 @@
     },
     {
       "LayoutId": "FINAL_AWARD_LIST_A4",
+      "DisplayName": "決勝入賞者名簿",
       "FrxPath": "./Reports/決勝入賞者名簿_縦.frx",
       "DataType": "DA_Master+DS_Status+DV_Result+Final_Award",
       "PrinterName": "",
@@ -194,6 +226,7 @@
     },
     {
       "LayoutId": "AJS_SCORE_LIST_A4",
+      "DisplayName": "得点一覧表 AJS用",
       "FrxPath": "./Reports/得点一覧表_AJS_横.frx",
       "DataType": "DA_Master+DS_Status+DV_Result+AJS_Score",
       "PrinterName": "",
@@ -203,6 +236,7 @@
     },
     {
       "LayoutId": "CHECK_SCORE_LIST_A4",
+      "DisplayName": "得点一覧表 チェック法用",
       "FrxPath": "./Reports/得点一覧表_チェック法_横.frx",
       "DataType": "DA_Master+DS_Status+DV_Result+Check_Score",
       "PrinterName": "",
@@ -212,6 +246,7 @@
     },
     {
       "LayoutId": "CHECK_SCORE_LIST_A4_PORT",
+      "DisplayName": "得点一覧表 チェック法用（縦）",
       "FrxPath": "./Reports/得点一覧表_チェック法_縦.frx",
       "DataType": "DA_Master+DS_Status+DV_Result+Check_Score",
       "PrinterName": "",
@@ -221,6 +256,7 @@
     },
     {
       "LayoutId": "JUDGE_SHEET_A4",
+      "DisplayName": "ジャッジ票",
       "FrxPath": "./Reports/ジャッジ票_横.frx",
       "DataType": "DA_Master+DS_Status+Judge_Sheet",
       "PrinterName": "",
@@ -230,6 +266,7 @@
     },
     {
       "LayoutId": "RANK_SCORE_LIST_A4",
+      "DisplayName": "得点一覧表 順位法",
       "FrxPath": "./Reports/得点一覧表_順位法_横.frx",
       "DataType": "DA_Master+DS_Status+DV_Result+Skating_Score",
       "PrinterName": "",
@@ -237,5 +274,35 @@
       "Duplex": "OneSided",
       "PaperSize": "A4"
     }
+  ],
+  "PrintCopyRows": [
+    { "採点方式": "チェック法", "ラウンド": "予選",   "帳票名": "出場者連絡票",          "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4", "司会": 1, "掲示": 0, "選手係": 1, "本部": 0, "ステマネ": 0, "賞状": 0, "保存": 0, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "チェック法", "ラウンド": "予選",   "帳票名": "出場者ヒート表",        "LayoutId": "PLAYER_HEAT_VERTICAL_A4",      "司会": 1, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "チェック法", "ラウンド": "予選",   "帳票名": "得点一覧表_チェック法", "LayoutId": "CHECK_SCORE_LIST_A4",          "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "チェック法", "ラウンド": "準決勝", "帳票名": "出場者連絡票",          "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4", "司会": 1, "掲示": 0, "選手係": 0, "本部": 0, "ステマネ": 0, "賞状": 0, "保存": 0, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "チェック法", "ラウンド": "準決勝", "帳票名": "準決勝進出者名簿",      "LayoutId": "SEMI_FINAL_ENTRY_LIST_A4",    "司会": 1, "掲示": 0, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 1, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "チェック法", "ラウンド": "準決勝", "帳票名": "出場者ヒート表",        "LayoutId": "PLAYER_HEAT_VERTICAL_A4",      "司会": 1, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "チェック法", "ラウンド": "準決勝", "帳票名": "得点一覧表_チェック法", "LayoutId": "CHECK_SCORE_LIST_A4",          "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "予選",   "帳票名": "出場者連絡票",          "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4", "司会": 1, "掲示": 0, "選手係": 1, "本部": 0, "ステマネ": 0, "賞状": 0, "保存": 0, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "予選",   "帳票名": "出場者ヒート表",        "LayoutId": "PLAYER_HEAT_VERTICAL_A4",      "司会": 1, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "予選",   "帳票名": "得点一覧表_順位法",     "LayoutId": "RANK_SCORE_LIST_A4",           "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "準決勝", "帳票名": "出場者連絡票",          "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4", "司会": 1, "掲示": 0, "選手係": 1, "本部": 0, "ステマネ": 0, "賞状": 0, "保存": 0, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "準決勝", "帳票名": "出場者ヒート表",        "LayoutId": "PLAYER_HEAT_VERTICAL_A4",      "司会": 1, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "準決勝", "帳票名": "得点一覧表_順位法",     "LayoutId": "RANK_SCORE_LIST_A4",           "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "決勝",   "帳票名": "決勝進出者名簿",        "LayoutId": "FINAL_ENTRY_LIST_A4",          "司会": 1, "掲示": 1, "選手係": 1, "本部": 1, "ステマネ": 1, "賞状": 1, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "決勝",   "帳票名": "得点一覧表_順位法",     "LayoutId": "RANK_SCORE_LIST_A4",           "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "順位法",     "ラウンド": "決勝",   "帳票名": "決勝入賞者名簿",        "LayoutId": "FINAL_AWARD_LIST_A4",          "司会": 1, "掲示": 0, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 1, "保存": 1, "GM": 0, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "予選",   "帳票名": "出場者連絡票",          "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4", "司会": 1, "掲示": 0, "選手係": 1, "本部": 0, "ステマネ": 0, "賞状": 0, "保存": 0, "GM": 1, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "予選",   "帳票名": "出場者ヒート表",        "LayoutId": "PLAYER_HEAT_VERTICAL_A4",      "司会": 1, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 1, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "予選",   "帳票名": "得点一覧表_AJS",        "LayoutId": "AJS_SCORE_LIST_A4",            "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 1, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "準決勝", "帳票名": "出場者連絡票",          "LayoutId": "PLAYER_NOTICE_HORIZONTAL_A4", "司会": 1, "掲示": 0, "選手係": 1, "本部": 0, "ステマネ": 0, "賞状": 0, "保存": 0, "GM": 1, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "準決勝", "帳票名": "準決勝進出者名簿",      "LayoutId": "SEMI_FINAL_ENTRY_LIST_A4",    "司会": 1, "掲示": 0, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 1, "保存": 1, "GM": 1, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "準決勝", "帳票名": "出場者ヒート表",        "LayoutId": "PLAYER_HEAT_VERTICAL_A4",      "司会": 1, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 1, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "準決勝", "帳票名": "得点一覧表_AJS",        "LayoutId": "AJS_SCORE_LIST_A4",            "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 1, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "決勝",   "帳票名": "出場者連絡票",          "LayoutId": "PLAYER_NOTICE_AJS_FINAL_A4",  "司会": 0, "掲示": 0, "選手係": 1, "本部": 0, "ステマネ": 0, "賞状": 0, "保存": 0, "GM": 1, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "決勝",   "帳票名": "決勝進出者名簿",        "LayoutId": "FINAL_ENTRY_LIST_A4",          "司会": 1, "掲示": 0, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 1, "保存": 1, "GM": 1, "レフリー": 0, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "決勝",   "帳票名": "出場者ヒート表",        "LayoutId": "PLAYER_HEAT_VERTICAL_A4",      "司会": 1, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 1, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "決勝",   "帳票名": "得点一覧表_AJS",        "LayoutId": "AJS_SCORE_LIST_A4",            "司会": 0, "掲示": 1, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 0, "保存": 1, "GM": 1, "レフリー": 1, "予備1": 0, "予備2": 0 },
+    { "採点方式": "AJS",        "ラウンド": "決勝",   "帳票名": "決勝入賞者名簿",        "LayoutId": "FINAL_AWARD_LIST_A4",          "司会": 1, "掲示": 0, "選手係": 0, "本部": 1, "ステマネ": 1, "賞状": 1, "保存": 1, "GM": 1, "レフリー": 1, "予備1": 0, "予備2": 0 }
   ]
 }
