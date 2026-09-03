@@ -85,6 +85,15 @@ namespace DSPrt.印刷
                     return;
                 }
 
+                // ─── 出場者連絡票は種目数ぶん個別 Prepare・印刷する ──────────────────
+                // 種目ごとにヒートが異なるため、DS_PRGDANCEs の数だけ繰り返して
+                // 各種目のヒート割り当てで1枚ずつ帳票を生成・印刷する。
+                if (dtUpper == "DA_MASTER_DS_STATUS_HORIZONTAL")
+                {
+                    PrintPlayerNoticePerDance(job, effectiveLayout);
+                    return;
+                }
+
                 // 1. FastReport で帳票を準備
                 using var report = LoadAndPrepare(job, layout);
 
@@ -270,10 +279,14 @@ namespace DSPrt.印刷
         /// PreparedPages.GetPage() で取得したページオブジェクト内の
         /// SendTo TextObject のテキストを再帰的に書き換える。
         /// PrintDirect の PrintPage イベント内で GetPage() した直後に呼ぶ。
+        /// DuplicatePageInReportXml で複製された 2 ページ目以降は
+        /// "SendTo_P02"/"SendTo_P03" 等のサフィックス付き名前になるため、
+        /// "SendTo" 完全一致に加えて "SendTo_P" で始まる名前もマッチする。
         /// </summary>
         private static void SetSendToOnPage(object obj, string labelText)
         {
-            if (obj is FastReport.TextObject txt && txt.Name == "SendTo")
+            if (obj is FastReport.TextObject txt &&
+                (txt.Name == "SendTo" || txt.Name.StartsWith("SendTo_P", StringComparison.Ordinal)))
             {
                 txt.Text = labelText;
                 return;
@@ -343,6 +356,146 @@ namespace DSPrt.印刷
             }
 
             _log.LogAdd($"[ReportRenderer] 印刷完了: jobId={job.JobId}", _log.INFO);
+        }
+
+        /// <summary>
+        /// 出場者連絡票専用印刷メソッド。
+        /// 全種目でヒート割が同一の場合は dncIndex=-1（従来通り1枚）で印刷する。
+        /// 1つでも異なる種目があれば DS_PRGDANCEs の数だけ個別に印刷する。
+        /// </summary>
+        private void PrintPlayerNoticePerDance(PrintJob job, LayoutSetting layout)
+        {
+            int copies = job.Copies > 0 ? job.Copies : layout.Copies;
+
+            // 種目数と「全種目ヒート割同一か」を DS_Status から取得
+            int  danceCount    = 1;
+            bool allHeatsSame  = true; // true なら1枚印刷
+            try
+            {
+                if (_dataManager.DS_Status != null && job.Data != null)
+                {
+                    var dsJson  = Newtonsoft.Json.Linq.JObject.Parse(_dataManager.DS_Status.ToJsonString());
+                    var jd      = Newtonsoft.Json.Linq.JObject.Parse(job.Data.ToJsonString());
+                    string kbnNo  = jd["KbnNo"]?.ToString()  ?? "";
+                    string rndNo  = jd["RndNo"]?.ToString()  ?? "";
+                    string dGrpNo = jd["DGrpNo"]?.ToString() ?? "";
+
+                    var floors = dsJson["DS_FLOORs"] as Newtonsoft.Json.Linq.JArray;
+                    if (floors != null)
+                    {
+                        foreach (var floor in floors.OfType<Newtonsoft.Json.Linq.JObject>())
+                        {
+                            var prgrsList = floor["DS_PRGRSs"] as Newtonsoft.Json.Linq.JArray;
+                            if (prgrsList == null) continue;
+                            foreach (var p in prgrsList.OfType<Newtonsoft.Json.Linq.JObject>())
+                            {
+                                if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
+                                if (p["DS_RndNo"]?.ToString()  != rndNo)  continue;
+                                if (!string.IsNullOrEmpty(dGrpNo) && p["DS_DGrpNo"]?.ToString() != dGrpNo) continue;
+
+                                var dncArr = p["DS_PRGDANCEs"] as Newtonsoft.Json.Linq.JArray;
+                                if (dncArr != null && dncArr.Count > 0)
+                                    danceCount = dncArr.Count;
+
+                                // ── 全種目でヒート割が同一か判定 ──────────────────────────
+                                // 各種目の HeatId→HeatNo マップを構築し、
+                                // 全選手について AssignedHeatIds[i] を HeatNo に変換して比較する。
+                                // いずれかの選手で種目間のヒート番号が異なれば allHeatsSame=false。
+                                if (danceCount > 1)
+                                {
+                                    var dncList3 = dncArr?.OfType<Newtonsoft.Json.Linq.JObject>().ToList() ?? new List<Newtonsoft.Json.Linq.JObject>();
+                                    // 種目ごとの HeatId→HeatNo マップ
+                                    var dncHeatMaps = dncList3.Select(dnc =>
+                                    {
+                                        var map = new Dictionary<string, int>();
+                                        var ha = dnc["DS_PRGHEATs"] as Newtonsoft.Json.Linq.JArray;
+                                        if (ha != null)
+                                            foreach (var h in ha.OfType<Newtonsoft.Json.Linq.JObject>())
+                                            {
+                                                string? hid = h["DS_HeatId"]?.ToString();
+                                                int     hno = h["DS_HeatNo"]?.ToObject<int>() ?? 0;
+                                                if (!string.IsNullOrEmpty(hid)) map[hid] = hno;
+                                            }
+                                        return map;
+                                    }).ToList();
+
+                                    var assignments3 = p["PlayerAssignments"] as Newtonsoft.Json.Linq.JArray;
+                                    if (assignments3 != null)
+                                    {
+                                        foreach (var pa in assignments3.OfType<Newtonsoft.Json.Linq.JObject>())
+                                        {
+                                            var hids = pa["AssignedHeatIds"] as Newtonsoft.Json.Linq.JArray;
+                                            if (hids == null || hids.Count < 2) continue;
+                                            int hno0 = dncHeatMaps[0].TryGetValue(hids[0]?.ToString() ?? "", out int v0) ? v0 : 0;
+                                            for (int di = 1; di < Math.Min(dncHeatMaps.Count, hids.Count); di++)
+                                            {
+                                                int hnoi = dncHeatMaps[di].TryGetValue(hids[di]?.ToString() ?? "", out int vi) ? vi : 0;
+                                                if (hnoi != hno0) { allHeatsSame = false; break; }
+                                            }
+                                            if (!allHeatsSame) break;
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                            if (!allHeatsSame) break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogAdd($"[ReportRenderer] PrintPlayerNoticePerDance: 種目数取得エラー: {ex.Message}", _log.WARNING);
+            }
+
+            _log.LogAdd($"[ReportRenderer] PrintPlayerNoticePerDance 開始: jobId={job.JobId}, danceCount={danceCount}, allHeatsSame={allHeatsSame}, copies={copies}", _log.INFO);
+
+            string frxPath = ResolveFrxPath(layout.FrxPath);
+            if (!File.Exists(frxPath))
+                throw new FileNotFoundException($".frx ファイルが見つかりません: {frxPath}");
+
+            // 全種目ヒート割同一 → dncIndex=-1 で1枚印刷（従来動作）
+            int printCount = (allHeatsSame || danceCount <= 1) ? 1 : danceCount;
+
+            for (int dncIdx = 0; dncIdx < printCount; dncIdx++)
+            {
+                // allHeatsSame の場合は dncIndex=-1（全種目統合）、異なる場合は種目インデックス
+                int bindDncIndex = allHeatsSame ? -1 : dncIdx;
+
+                var report = new Report();
+                report.Load(frxPath);
+
+                // データバインド
+                BindPlayerNoticeHorizontal(report, job.Data, bindDncIndex);
+                BindCommonFooter(report);
+
+                bool prevWebMode = FastReport.Utils.Config.WebMode;
+                FastReport.Utils.Config.WebMode = false;
+                try { report.Prepare(); }
+                finally { FastReport.Utils.Config.WebMode = prevWebMode; }
+
+                // 配布先別印刷 or フォールバック
+                var copyAssignments = ResolveCopyAssignments(job, layout.LayoutId);
+                using (report)
+                {
+                    if (copyAssignments != null && copyAssignments.Count > 0)
+                    {
+                        foreach (var (sendToLabel, roleCopies) in copyAssignments)
+                        {
+                            if (roleCopies <= 0) continue;
+                            PrintDirect(report, layout, roleCopies, job.JobId, sendToLabel);
+                        }
+                    }
+                    else
+                    {
+                        PrintDirect(report, layout, copies, job.JobId);
+                    }
+                }
+
+                _log.LogAdd($"[ReportRenderer] PrintPlayerNoticePerDance: dncIdx={dncIdx} 印刷完了", _log.INFO);
+            }
+
+            _log.LogAdd($"[ReportRenderer] PrintPlayerNoticePerDance 完了: jobId={job.JobId}", _log.INFO);
         }
 
         /// <summary>
@@ -1199,6 +1352,9 @@ namespace DSPrt.印刷
         ///   { "KbnNo": "1", "RndNo": "1", "DGrpNo": "1" }
         ///   DGrpNo を省略した場合は該当区分・ラウンドの最初の種目グループを使用する。
         ///
+        /// dncIndex: 種目インデックス（0始まり）。AssignedHeatIds[dncIndex] を参照してヒートを振り分ける。
+        ///           -1 の場合は従来動作（heatIds[0] を使用）。
+        ///
         /// frx の TextObject 名（ヒート表_横.frx）:
         ///   Title, SendTo
         ///   PRGNO, KubunName
@@ -1209,7 +1365,7 @@ namespace DSPrt.印刷
         ///   No01_01〜No06_20, Name01_01〜Name06_20
         ///   Table4〜Table9（ヒート行テーブル：未使用ヒートは Visible=false）
         /// </summary>
-        private void BindPlayerNoticeHorizontal(Report report, JsonNode? jobData)
+        private void BindPlayerNoticeHorizontal(Report report, JsonNode? jobData, int dncIndex = -1)
         {
             try
             {
@@ -1359,30 +1515,33 @@ namespace DSPrt.印刷
                     ? prgNoFormatted
                     : $"{prgNoFormatted}-{prgSubNo}";
 
-                // ── HeatId→HeatNo マップ（全種目のヒート数の最大値）──────────────
-                // 各種目の DS_PRGHEATs を調べ、最大ヒート数を取得
+                // ── HeatId→HeatNo マップ：dncIndex に対応する種目のみ参照 ──────────
+                // dncIndex >= 0 の場合（種目別印刷）: DS_PRGDANCEs[dncIndex] の DS_PRGHEATs だけを使う。
+                // dncIndex < 0 の場合（旧動作）: 全種目の DS_PRGHEATs を統合してマップを作る。
                 var heatIdToNo   = new Dictionary<string, int>();
                 int maxHeatCount = 0;
                 var dncArr = prgrs["DS_PRGDANCEs"] as JArray;
-                if (dncArr != null)
+                var dncList2 = dncArr?.OfType<JObject>().ToList() ?? new List<JObject>();
+                var targetDncs = (dncIndex >= 0 && dncIndex < dncList2.Count)
+                    ? new List<JObject> { dncList2[dncIndex] }
+                    : dncList2;
+
+                foreach (var dnc in targetDncs)
                 {
-                    foreach (var dnc in dncArr.OfType<JObject>())
+                    var heatArr = dnc["DS_PRGHEATs"] as JArray;
+                    if (heatArr == null) continue;
+                    int cnt = 0;
+                    foreach (var h in heatArr.OfType<JObject>())
                     {
-                        var heatArr = dnc["DS_PRGHEATs"] as JArray;
-                        if (heatArr == null) continue;
-                        int cnt = 0;
-                        foreach (var h in heatArr.OfType<JObject>())
-                        {
-                            string? hid = h["DS_HeatId"]?.ToString();
-                            int     hno = h["DS_HeatNo"]?.ToObject<int>() ?? 0;
-                            if (!string.IsNullOrEmpty(hid) && !heatIdToNo.ContainsKey(hid))
-                                heatIdToNo[hid] = hno;
-                            cnt++;
-                        }
-                        if (cnt > maxHeatCount) maxHeatCount = cnt;
+                        string? hid = h["DS_HeatId"]?.ToString();
+                        int     hno = h["DS_HeatNo"]?.ToObject<int>() ?? 0;
+                        if (!string.IsNullOrEmpty(hid) && !heatIdToNo.ContainsKey(hid))
+                            heatIdToNo[hid] = hno;
+                        cnt++;
                     }
+                    if (cnt > maxHeatCount) maxHeatCount = cnt;
                 }
-                // 全種目同一ヒート構成の場合、いずれかの種目の最大 HeatNo を取得
+
                 int totalHeats = heatIdToNo.Count > 0
                     ? heatIdToNo.Values.Max()
                     : maxHeatCount;
@@ -1417,8 +1576,10 @@ namespace DSPrt.印刷
                         var   heatIds    = pa["AssignedHeatIds"] as JArray;
                         if (heatIds == null || heatIds.Count == 0) continue;
 
-                        string firstHeatId = heatIds[0]?.ToString() ?? "";
-                        if (heatIdToNo.TryGetValue(firstHeatId, out int hn) && heatDict.ContainsKey(hn))
+                        // dncIndex >= 0 の場合はその種目のヒートIDを使用、それ以外は先頭を使用
+                        int useIdx = (dncIndex >= 0 && dncIndex < heatIds.Count) ? dncIndex : 0;
+                        string targetHeatId = heatIds[useIdx]?.ToString() ?? "";
+                        if (heatIdToNo.TryGetValue(targetHeatId, out int hn) && heatDict.ContainsKey(hn))
                             heatDict[hn].Add((playerNo, playerName));
                     }
                 }
@@ -1488,13 +1649,20 @@ namespace DSPrt.印刷
                 SetTextObject(report, "ScoreMethod", scrMtd);
 
                 // DS1〜DS5 / DC1〜DC5
-                // この帳票に含まれる種目（値が入るセル）は背景を DarkOrange、含まれない（空欄）は Transparent
+                // dncIndex >= 0（種目別印刷）: 対象種目のみ DarkOrange、他は Transparent（白）
+                // dncIndex < 0（全種目統合・ヒート同一）: 全種目を DarkOrange
                 for (int i = 1; i <= 5; i++)
                 {
                     bool hasDance = i <= dances.Count;
                     SetTextObject(report, $"DS{i}", hasDance ? dsCodes[i - 1] : "");
                     SetTextObject(report, $"DC{i}", hasDance ? dcTypes[i - 1] : "");
-                    var fillColor = hasDance ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent;
+                    System.Drawing.Color fillColor;
+                    if (!hasDance)
+                        fillColor = System.Drawing.Color.Transparent;
+                    else if (dncIndex >= 0)
+                        fillColor = (i - 1 == dncIndex) ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent;
+                    else
+                        fillColor = System.Drawing.Color.DarkOrange;
                     SetTextObjectFill(report, $"DS{i}", fillColor);
                     SetTextObjectFill(report, $"DC{i}", fillColor);
                 }
@@ -4581,8 +4749,8 @@ namespace DSPrt.印刷
             const int PortMaxJudgeColsPerPage  = 30;
             const int PortMaxFrxCheckCols      = 34;
             const int LandPairsPerPage         = 20;
-            const int LandMaxJudgeColsPerPage  = 65;
-            const int LandMaxFrxCheckCols      = 69;
+            const int LandMaxJudgeColsPerPage  = 79;
+            const int LandMaxFrxCheckCols      = 84;
 
             // 縦横は後でデータ解析後に決定。まず横版で初期化しておく。
             int PairsPerPage        = LandPairsPerPage;
@@ -4620,7 +4788,9 @@ namespace DSPrt.印刷
                 var floors     = dsJson["DS_FLOORs"] as JArray;
                 int floorCount = floors?.Count ?? 0;
 
-                // ── 対象 DS_PRGRS を KbnNo / RndNo で検索 ────────────────────────
+                // ── 対象 DS_PRGRS を KbnNo / RndNo で検索（全DGrpを収集）────────────────────────
+                // 複数DGrpが存在する場合も含め、同一区分・ラウンドの全PRGRSを取得する
+                var allPrgrs  = new List<JObject>();
                 JObject? prgrs    = null;
                 string   flrCd    = "";
                 string   prgNo    = "";
@@ -4636,15 +4806,16 @@ namespace DSPrt.印刷
                         {
                             if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
                             if (p["DS_RndNo"]?.ToString()  != rndNo)  continue;
-                            if (!string.IsNullOrEmpty(dGrpNo) &&
-                                p["DS_DGrpNo"]?.ToString() != dGrpNo) continue;
-                            prgrs    = p;
-                            flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
-                            prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
-                            prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
-                            break;
+                            allPrgrs.Add(p);
+                            if (prgrs == null)
+                            {
+                                // 先頭DGrpを代表prgrsとして使用（進行番号・フロア表示用）
+                                prgrs    = p;
+                                flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
+                                prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
+                                prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
+                            }
                         }
-                        if (prgrs != null) break;
                     }
                 }
 
@@ -4686,10 +4857,23 @@ namespace DSPrt.印刷
                 }
 
                 string dgrpName = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
-                var dncList     = dgrpObj?["DE_DANCEs"] as JArray;
-                var dances      = dncList?.OfType<JObject>()
-                    .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
-                    ?? new List<JObject>();
+
+                // 全DGrpの種目を統合して1枚に表示する（複数DGrpが存在する場合もすべて含める）
+                var dances = new List<JObject>();
+                if (dgList != null)
+                {
+                    foreach (var dg in dgList.OfType<JObject>())
+                    {
+                        var dncArr2 = dg["DE_DANCEs"] as JArray;
+                        if (dncArr2 == null) continue;
+                        foreach (var d in dncArr2.OfType<JObject>().OrderBy(x => x["DE_DncNo"]?.ToObject<int>() ?? 0))
+                        {
+                            string dncCd = d["DE_DncCd"]?.ToString() ?? "";
+                            if (!dances.Any(x => string.Equals(x["DE_DncCd"]?.ToString(), dncCd, System.StringComparison.OrdinalIgnoreCase)))
+                                dances.Add(d);
+                        }
+                    }
+                }
 
                 int danceCount = dances.Count;
                 string[] dsCodes = dances.Select(d => d["DE_DncCd"]?.ToString() ?? "").ToArray();
@@ -4702,8 +4886,7 @@ namespace DSPrt.印刷
                 kubunParts.Append(kbnNoDisplay);
                 if (!string.IsNullOrEmpty(kbnCd))      kubunParts.Append(" ").Append(kbnCd);
                 if (!string.IsNullOrEmpty(kbnDspName)) kubunParts.Append(" ").Append(kbnDspName);
-                if (dgCount > 1 && !string.IsNullOrEmpty(dgrpName))
-                    kubunParts.Append(" ").Append(dgrpName);
+                // 全DGrp統合表示のため種目GRP名はkubunNameに追加しない
                 if (floorCount > 1 && !string.IsNullOrEmpty(flrCd))
                     kubunParts.Append(" ").Append(flrCd).Append("フロア");
                 string kubunName = kubunParts.ToString();
@@ -4713,12 +4896,13 @@ namespace DSPrt.印刷
                 string prgNoDisplay = string.IsNullOrEmpty(prgSubNo) || prgSubNo == "0" || prgSubNo == "1"
                     ? prgNoFormatted : $"{prgNoFormatted}-{prgSubNo}";
 
-                // ── ヒート数・出場者数 ──────────────────────────────────────────────
-                var dncArr = prgrs["DS_PRGDANCEs"] as JArray;
+                // ── ヒート数・出場者数（全DGrpを統合）──────────────────────────────────────────────
                 var heatIdToNo = new Dictionary<string, int>();
                 int maxHeatCount = 0;
-                if (dncArr != null)
+                foreach (var pg in allPrgrs)
                 {
+                    var dncArr = pg["DS_PRGDANCEs"] as JArray;
+                    if (dncArr == null) continue;
                     foreach (var dnc in dncArr.OfType<JObject>())
                     {
                         var heatArr = dnc["DS_PRGHEATs"] as JArray;
@@ -4735,9 +4919,24 @@ namespace DSPrt.印刷
                         if (cnt > maxHeatCount) maxHeatCount = cnt;
                     }
                 }
-                int totalHeats   = heatIdToNo.Count > 0 ? heatIdToNo.Values.Max() : maxHeatCount;
-                var assignments  = prgrs["PlayerAssignments"] as JArray;
-                int totalEntries = assignments?.Count ?? 0;
+                int totalHeats = heatIdToNo.Count > 0 ? heatIdToNo.Values.Max() : maxHeatCount;
+
+                // 出場者リストを全DGrpから統合（重複除去）
+                var allPlayerNos = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+                var assignmentsList = new List<JObject>();
+                foreach (var pg in allPrgrs)
+                {
+                    var assigns = pg["PlayerAssignments"] as JArray;
+                    if (assigns == null) continue;
+                    foreach (var pa in assigns.OfType<JObject>())
+                    {
+                        string? no = pa["PlayerNo"]?.ToString();
+                        if (!string.IsNullOrEmpty(no) && allPlayerNos.Add(no))
+                            assignmentsList.Add(pa);
+                    }
+                }
+                var assignments  = assignmentsList.Count > 0 ? assignmentsList : null;
+                int totalEntries = allPlayerNos.Count;
                 bool isShuffle   = prgrs["DS_PrgShuffle"]?.ToObject<bool>() ?? false;
 
                 // ── 次ラウンドの PlayerAssignments を取得（UP判定用）────────────────
@@ -4759,6 +4958,7 @@ namespace DSPrt.印刷
 
                     if (!string.IsNullOrEmpty(nextRndNoStr) && floors != null)
                     {
+                        // 次ラウンドは全DGrpを対象にUP選手を収集する
                         foreach (var floor in floors.OfType<JObject>())
                         {
                             var prgrsList = floor["DS_PRGRSs"] as JArray;
@@ -4767,8 +4967,6 @@ namespace DSPrt.印刷
                             {
                                 if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
                                 if (p["DS_RndNo"]?.ToString()  != nextRndNoStr) continue;
-                                if (!string.IsNullOrEmpty(dGrpNo) &&
-                                    p["DS_DGrpNo"]?.ToString() != dGrpNo) continue;
                                 var nextAssigns = p["PlayerAssignments"] as JArray;
                                 if (nextAssigns != null)
                                 {
@@ -4779,7 +4977,6 @@ namespace DSPrt.印刷
                                             nextRndAssignedPlayerNos.Add(no);
                                     }
                                 }
-                                break;
                             }
                         }
                     }
@@ -4981,7 +5178,7 @@ namespace DSPrt.印刷
 
                 if (assignments != null)
                 {
-                    foreach (var pa in assignments.OfType<JObject>())
+                    foreach (var pa in assignments)
                     {
                         string playerNo = pa["PlayerNo"]?.ToString() ?? "";
                         if (string.IsNullOrEmpty(playerNo)) continue;

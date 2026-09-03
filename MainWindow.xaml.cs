@@ -39,6 +39,9 @@ namespace DSPrt
         private bool _updatingAwardUi;
         private readonly ObservableCollection<AwardRankRow> _awardRankRows = new();
 
+        // 終了確認済みフラグ（Closing イベント再入防止）
+        private bool _closingConfirmed = false;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -46,6 +49,7 @@ namespace DSPrt
             JobLogGrid.SelectionChanged += JobLogGrid_SelectionChanged;
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
+            Closed  += MainWindow_Closed;
         }
 
         // ─── ウィンドウライフサイクル ────────────────────────────────
@@ -76,11 +80,37 @@ namespace DSPrt
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            // 確認済みの場合はそのまま閉じる（再入防止）
+            if (_closingConfirmed) return;
+
+            // 終了確認ダイアログ
+            var result = MessageBox.Show(
+                "DSPrt を終了してもよいですか？",
+                "終了確認",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            _closingConfirmed = true;
+
             AddLog("DSPrt 終了処理");
             _printService?.Dispose();
             _printService = null;
             _client?.Dispose();
             _client = null;
+        }
+
+        private void MainWindow_Closed(object? sender, EventArgs e)
+        {
+            // ウィンドウが完全に閉じた後にプロセスを確実に終了させる
+            // （WebSocket 等のバックグラウンドスレッドが残存する場合に対応）
+            Application.Current.Shutdown();
         }
 
         // ─── 接続・切断 ─────────────────────────────────────────────
