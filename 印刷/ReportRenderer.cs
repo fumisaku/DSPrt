@@ -231,8 +231,10 @@ namespace DSPrt.印刷
 
                 // ─── 採点方式を解決 ──────────────────────────────────────
                 string rawScrMtd = rndObj["DC_RndScrMtd"]?.ToString() ?? "";
-                // DS_Status の ScrMtdName が使えればより正確だが、DataManager からは
-                // DA_Master の DC_RndScrMtd を使う（"1"=チェック法, "2"=順位法, "3"=AJS 等）
+                // DA_Master の DC_RndScrMtd を解決する。
+                // 数値コード（"1"=チェック法, "2"=順位法, "3"=AJS）の場合はそれぞれ変換する。
+                // 文字列の場合は内容に "AJS"/"チェック"/"順位" が含まれるかで判定する。
+                // これにより "AJS3.1J for PD" のような拡張採点方式IDでも正しく "AJS" に解決される。
                 scrMtd = rawScrMtd switch
                 {
                     "1" => "チェック法",
@@ -240,9 +242,18 @@ namespace DSPrt.印刷
                     "3" => "AJS",
                     _   => null
                 };
-                // 文字列の場合はそのまま使う（将来拡張用）
                 if (scrMtd == null && !string.IsNullOrEmpty(rawScrMtd))
-                    scrMtd = rawScrMtd;
+                {
+                    string upper = rawScrMtd.ToUpperInvariant();
+                    if (upper.Contains("AJS"))
+                        scrMtd = "AJS";
+                    else if (upper.Contains("チェック") || upper.Contains("CHECK"))
+                        scrMtd = "チェック法";
+                    else if (upper.Contains("順位") || upper.Contains("RANK") || upper.Contains("SKAT"))
+                        scrMtd = "順位法";
+                    else
+                        scrMtd = rawScrMtd;  // フォールバック: 文字列をそのまま使う
+                }
 
                 // ─── ラウンド種別を解決 ───────────────────────────────────
                 // ラウンド一覧の最後が決勝（下位決勝も含む）、
