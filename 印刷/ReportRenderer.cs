@@ -4216,6 +4216,8 @@ namespace DSPrt.印刷
                 int floorCount = floors?.Count ?? 0;
 
                 // ── 対象 DS_PRGRS を KbnNo / RndNo で検索 ──────────────────────
+                // DGrpNo 空 = 全DGrpをまとめて印刷、指定あり = そのDGrpのみ
+                var allPrgrs      = new List<JObject>();
                 JObject? prgrs    = null;
                 string   flrCd    = "";
                 string   prgNo    = "";
@@ -4234,13 +4236,15 @@ namespace DSPrt.印刷
                             if (!string.IsNullOrEmpty(dGrpNo) &&
                                 p["DS_DGrpNo"]?.ToString() != dGrpNo)
                                 continue;
-                            prgrs    = p;
-                            flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
-                            prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
-                            prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
-                            break;
+                            allPrgrs.Add(p);
+                            if (prgrs == null)
+                            {
+                                prgrs    = p;
+                                flrCd    = floor["DS_FlrCd"]?.ToString()  ?? "";
+                                prgNo    = p["DS_PrgNo"]?.ToString()     ?? "";
+                                prgSubNo = p["DS_PrgSubNo"]?.ToString()  ?? "";
+                            }
                         }
-                        if (prgrs != null) break;
                     }
                 }
 
@@ -4282,10 +4286,23 @@ namespace DSPrt.印刷
                 }
 
                 string dgrpName = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
-                var dncList     = dgrpObj?["DE_DANCEs"] as JArray;
-                var dances      = dncList?.OfType<JObject>()
-                    .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
-                    ?? new List<JObject>();
+
+                // DGrpNo 空 = 全DGrpの種目を統合（種目コードで重複排除）、指定あり = そのDGrpの種目のみ
+                var dances = new List<JObject>();
+                var targetDgList = string.IsNullOrEmpty(dGrpNo)
+                    ? (dgList?.OfType<JObject>().ToList() ?? new List<JObject>())
+                    : (dgrpObj != null ? new List<JObject> { dgrpObj } : new List<JObject>());
+                foreach (var dg in targetDgList)
+                {
+                    var dncArr0 = dg["DE_DANCEs"] as JArray;
+                    if (dncArr0 == null) continue;
+                    foreach (var d in dncArr0.OfType<JObject>().OrderBy(x => x["DE_DncNo"]?.ToObject<int>() ?? 0))
+                    {
+                        string cd = d["DE_DncCd"]?.ToString() ?? "";
+                        if (!dances.Any(x => string.Equals(x["DE_DncCd"]?.ToString(), cd, StringComparison.OrdinalIgnoreCase)))
+                            dances.Add(d);
+                    }
+                }
 
                 int danceCount = Math.Min(dances.Count, MaxDances);
 
@@ -4307,7 +4324,8 @@ namespace DSPrt.印刷
                 kubunParts.Append(kbnNoDisplay);
                 if (!string.IsNullOrEmpty(kbnCd))      kubunParts.Append(" ").Append(kbnCd);
                 if (!string.IsNullOrEmpty(kbnDspName)) kubunParts.Append(" ").Append(kbnDspName);
-                if (dgCount > 1 && !string.IsNullOrEmpty(dgrpName))
+                // 種目GRP名は DGrpNo 指定（GRP毎印刷）かつ複数GRPのときだけ付加（まとめ印刷では付加しない）
+                if (!string.IsNullOrEmpty(dGrpNo) && dgCount > 1 && !string.IsNullOrEmpty(dgrpName))
                     kubunParts.Append(" ").Append(dgrpName);
                 if (floorCount > 1 && !string.IsNullOrEmpty(flrCd))
                     kubunParts.Append(" ").Append(flrCd).Append("フロア");
@@ -4319,12 +4337,13 @@ namespace DSPrt.印刷
                 string prgNoDisplay = string.IsNullOrEmpty(prgSubNo) || prgSubNo == "0" || prgSubNo == "1"
                     ? prgNoFormatted : $"{prgNoFormatted}-{prgSubNo}";
 
-                // ── ヒート数・出場者数 ──────────────────────────────────────────
-                var dncArr = prgrs["DS_PRGDANCEs"] as JArray;
+                // ── ヒート数・出場者数（対象DGrpすべてを統合）────────────────────
                 var heatIdToNo = new Dictionary<string, int>();
                 int maxHeatCount = 0;
-                if (dncArr != null)
+                foreach (var pg0 in allPrgrs)
                 {
+                    var dncArr = pg0["DS_PRGDANCEs"] as JArray;
+                    if (dncArr == null) continue;
                     foreach (var dnc in dncArr.OfType<JObject>())
                     {
                         var heatArr = dnc["DS_PRGHEATs"] as JArray;
@@ -4342,8 +4361,23 @@ namespace DSPrt.印刷
                     }
                 }
                 int totalHeats   = heatIdToNo.Count > 0 ? heatIdToNo.Values.Max() : maxHeatCount;
-                var assignments  = prgrs["PlayerAssignments"] as JArray;
-                int totalEntries = assignments?.Count ?? 0;
+
+                // 出場者は対象DGrpから統合（背番号で重複排除）
+                var allPlayerNos0 = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var assignmentsList0 = new List<JObject>();
+                foreach (var pg0 in allPrgrs)
+                {
+                    var assigns0 = pg0["PlayerAssignments"] as JArray;
+                    if (assigns0 == null) continue;
+                    foreach (var pa in assigns0.OfType<JObject>())
+                    {
+                        string? no = pa["PlayerNo"]?.ToString();
+                        if (!string.IsNullOrEmpty(no) && allPlayerNos0.Add(no))
+                            assignmentsList0.Add(pa);
+                    }
+                }
+                var assignments  = assignmentsList0.Count > 0 ? assignmentsList0 : null;
+                int totalEntries = allPlayerNos0.Count;
                 bool isShuffle   = prgrs["DS_PrgShuffle"]?.ToObject<bool>() ?? false;
 
                 // ── 次ラウンドの PlayerAssignments を取得（UP判定用）──────────
@@ -4394,7 +4428,8 @@ namespace DSPrt.印刷
                                                 nextRndAssignedPlayerNos.Add(no);
                                         }
                                     }
-                                    break;
+                                    // まとめ印刷(DGrpNo空)のときは次ラウンドの全DGrpを対象にする
+                                    if (!string.IsNullOrEmpty(dGrpNo)) break;
                                 }
                             }
                         }
@@ -4817,6 +4852,9 @@ namespace DSPrt.印刷
                         {
                             if (p["DS_KbnNo"]?.ToString() != kbnNo) continue;
                             if (p["DS_RndNo"]?.ToString()  != rndNo)  continue;
+                            // DGrpNo 空 = 全DGrpまとめ、指定あり = そのDGrpのみ
+                            if (!string.IsNullOrEmpty(dGrpNo) &&
+                                p["DS_DGrpNo"]?.ToString() != dGrpNo) continue;
                             allPrgrs.Add(p);
                             if (prgrs == null)
                             {
@@ -4869,12 +4907,13 @@ namespace DSPrt.印刷
 
                 string dgrpName = dgrpObj?["DD_DGrpName"]?.ToString() ?? "";
 
-                // 全DGrpの種目を統合して1枚に表示する（複数DGrpが存在する場合もすべて含める）
+                // DGrpNo 空 = 全DGrpの種目を統合して1枚に表示、指定あり = そのDGrpの種目のみ
                 var dances = new List<JObject>();
                 if (dgList != null)
                 {
                     foreach (var dg in dgList.OfType<JObject>())
                     {
+                        if (!string.IsNullOrEmpty(dGrpNo) && dg["DD_DGrpNo"]?.ToString() != dGrpNo) continue;
                         var dncArr2 = dg["DE_DANCEs"] as JArray;
                         if (dncArr2 == null) continue;
                         foreach (var d in dncArr2.OfType<JObject>().OrderBy(x => x["DE_DncNo"]?.ToObject<int>() ?? 0))
@@ -4897,7 +4936,9 @@ namespace DSPrt.印刷
                 kubunParts.Append(kbnNoDisplay);
                 if (!string.IsNullOrEmpty(kbnCd))      kubunParts.Append(" ").Append(kbnCd);
                 if (!string.IsNullOrEmpty(kbnDspName)) kubunParts.Append(" ").Append(kbnDspName);
-                // 全DGrp統合表示のため種目GRP名はkubunNameに追加しない
+                // 種目GRP名は DGrpNo 指定（GRP毎印刷）かつ複数GRPのときだけ付加
+                if (!string.IsNullOrEmpty(dGrpNo) && dgCount > 1 && !string.IsNullOrEmpty(dgrpName))
+                    kubunParts.Append(" ").Append(dgrpName);
                 if (floorCount > 1 && !string.IsNullOrEmpty(flrCd))
                     kubunParts.Append(" ").Append(flrCd).Append("フロア");
                 string kubunName = kubunParts.ToString();
@@ -5756,14 +5797,25 @@ namespace DSPrt.印刷
                     var dgrps   = rndObj?["DD_DGRPs"] as JArray;
                     JObject? dgrp = dgrps?.OfType<JObject>()
                         .FirstOrDefault(g => string.IsNullOrEmpty(dGrpNo) || g["DD_DGrpNo"]?.ToString() == dGrpNo);
-                    var dances  = (dgrp?["DE_DANCEs"] as JArray)?.OfType<JObject>()
-                        .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
-                        ?? new List<JObject>();
+                    // DGrpNo 空 = 全DGrpの種目を統合（種目コードで重複排除）、指定あり = そのDGrpの種目のみ
+                    var dances = new List<JObject>();
+                    foreach (var dg in dgrps?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                    {
+                        if (!string.IsNullOrEmpty(dGrpNo) && dg["DD_DGrpNo"]?.ToString() != dGrpNo) continue;
+                        foreach (var d in (dg["DE_DANCEs"] as JArray)?.OfType<JObject>()
+                                     .OrderBy(x => x["DE_DncNo"]?.ToObject<int>() ?? 0) ?? Enumerable.Empty<JObject>())
+                        {
+                            string cd = d["DE_DncCd"]?.ToString() ?? "";
+                            if (!dances.Any(x => string.Equals(x["DE_DncCd"]?.ToString(), cd, StringComparison.OrdinalIgnoreCase)))
+                                dances.Add(d);
+                        }
+                    }
                     danceCount = Math.Min(dances.Count, 5);
                     dsCodes    = dances.Take(5).Select(d => d["DE_DncCd"]?.ToString() ?? "").ToArray();
                     dcTypes    = dances.Take(5).Select(d => d["DE_DncSG"]?.ToString() ?? "").ToArray();
 
-                    string dgName = ((dgrps?.Count ?? 0) > 1 ? dgrp?["DD_DGrpName"]?.ToString() : "") ?? "";
+                    // 種目GRP名は DGrpNo 指定（GRP毎印刷）かつ複数GRPのときだけ付加
+                    string dgName = (!string.IsNullOrEmpty(dGrpNo) && (dgrps?.Count ?? 0) > 1 ? dgrp?["DD_DGrpName"]?.ToString() : "") ?? "";
 
                     int kbnNoInt2 = int.TryParse(kbnNo, out int kni2) ? kni2 : 0;
                     kubunNameDisplay = $"{kbnNoInt2:D2}";
@@ -6354,9 +6406,19 @@ namespace DSPrt.印刷
                     var dgrps = rndObj?["DD_DGRPs"] as JArray;
                     JObject? dgrp = dgrps?.OfType<JObject>()
                         .FirstOrDefault(g => string.IsNullOrEmpty(dGrpNo) || g["DD_DGrpNo"]?.ToString() == dGrpNo);
-                    var dances  = (dgrp?["DE_DANCEs"] as JArray)?.OfType<JObject>()
-                        .OrderBy(d => d["DE_DncNo"]?.ToObject<int>() ?? 0).ToList()
-                        ?? new List<JObject>();
+                    // DGrpNo 空 = 全DGrpの種目を統合（種目コードで重複排除）、指定あり = そのDGrpの種目のみ
+                    var dances = new List<JObject>();
+                    foreach (var dg in dgrps?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                    {
+                        if (!string.IsNullOrEmpty(dGrpNo) && dg["DD_DGrpNo"]?.ToString() != dGrpNo) continue;
+                        foreach (var d in (dg["DE_DANCEs"] as JArray)?.OfType<JObject>()
+                                     .OrderBy(x => x["DE_DncNo"]?.ToObject<int>() ?? 0) ?? Enumerable.Empty<JObject>())
+                        {
+                            string cd = d["DE_DncCd"]?.ToString() ?? "";
+                            if (!dances.Any(x => string.Equals(x["DE_DncCd"]?.ToString(), cd, StringComparison.OrdinalIgnoreCase)))
+                                dances.Add(d);
+                        }
+                    }
                     danceCount = Math.Min(dances.Count, MaxDances);
                     for (int i = 0; i < danceCount; i++)
                     {
@@ -6364,7 +6426,8 @@ namespace DSPrt.印刷
                         dcTypes[i] = dances[i]["DE_DncSG"]?.ToString() ?? "";
                     }
 
-                    string dgName = ((dgrps?.Count ?? 0) > 1 ? dgrp?["DD_DGrpName"]?.ToString() : "") ?? "";
+                    // 種目GRP名は DGrpNo 指定（GRP毎印刷）かつ複数GRPのときだけ付加
+                    string dgName = (!string.IsNullOrEmpty(dGrpNo) && (dgrps?.Count ?? 0) > 1 ? dgrp?["DD_DGrpName"]?.ToString() : "") ?? "";
                     int kbnNoInt2 = int.TryParse(kbnNo, out int kni2) ? kni2 : 0;
                     kubunNameDisp = $"{kbnNoInt2:D2}";
                     if (!string.IsNullOrEmpty(kbnCd))      kubunNameDisp += $" {kbnCd}";
