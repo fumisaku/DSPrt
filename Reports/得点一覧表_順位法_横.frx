@@ -964,6 +964,7 @@
       <TextObject Name="SK_DncTitle_P2" Left="37.8" Width="110" Height="18.9" Text="種目別結果" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
       <TextObject Name="SK_DncName_P2" Left="147.8" Width="220" Height="18.9" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
       <TextObject Name="SK_JudgeInfo_P2" Left="377.8" Width="370" Height="18.9" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
+      <TextObject Name="SK_JdgList_P2" Left="37.8" Top="630" Width="640" Height="120" Text="" VertAlign="Top" Font="MS UI Gothic, 9pt"/>
       <TextObject Name="SK_H_C00_P2" Left="37.8" Top="18.9" Width="50" Height="18.9" Border.Lines="All" Text="背番号" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
       <TextObject Name="SK_H_J01_P2" Left="152.25" Top="18.9" Width="20" Height="18.9" Border.Lines="All" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/>
       <TextObject Name="SK_H_J02_P2" Left="172.25" Top="18.9" Width="20" Height="18.9" Border.Lines="All" HorzAlign="Center" VertAlign="Center" Font="MS UI Gothic, 9pt"/>

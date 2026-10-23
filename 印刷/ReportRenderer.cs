@@ -2752,6 +2752,41 @@ namespace DSPrt.印刷
         }
 
         /// <summary>
+        /// ヘッダー右上の「競技種目」ボックス（DS1〜DS5 / DC1〜DC5）に種目記号をセットする。
+        /// 5種目以下: 上段=種目記号、下段=種目区分(Group等)。
+        /// 6種目以上: 「Group」表記をやめ、上段=1〜5番目、下段=6〜10番目の種目記号（最大10種目）。
+        /// </summary>
+        /// <param name="suffix">TextObject 名のサフィックス（例: ""、"_P1"）</param>
+        private static void SetDanceHeaderBox(Report report, string suffix,
+            string[] dsCodes, string[] dcTypes, int danceCount)
+        {
+            for (int i = 1; i <= 5; i++)
+            {
+                string upper, lower;
+                bool hasUpper = i <= danceCount;
+                bool hasLower;
+                if (danceCount > 5)
+                {
+                    upper    = dsCodes[i - 1];
+                    hasLower = (i + 5) <= danceCount;
+                    lower    = hasLower ? dsCodes[i + 4] : "";
+                }
+                else
+                {
+                    upper    = hasUpper ? dsCodes[i - 1] : "";
+                    hasLower = hasUpper;
+                    lower    = hasUpper ? dcTypes[i - 1] : "";
+                }
+                SetTextObject(report, $"DS{i}{suffix}", upper);
+                SetTextObject(report, $"DC{i}{suffix}", lower);
+                SetTextObjectFill(report, $"DS{i}{suffix}",
+                    hasUpper ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent);
+                SetTextObjectFill(report, $"DC{i}{suffix}",
+                    hasLower ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent);
+            }
+        }
+
+        /// <summary>
         /// 指定名の TextObject の背景色（FillColor）を設定する。
         /// </summary>
         private static void SetTextObjectFill(Report report, string name, System.Drawing.Color color)
@@ -5733,8 +5768,8 @@ namespace DSPrt.印刷
                 string scrMtd          = scrMtdName;
                 var    rndList         = new JArray();
                 int    danceCount      = 0;
-                string[] dsCodes       = new string[5];
-                string[] dcTypes       = new string[5];
+                string[] dsCodes       = new string[10];
+                string[] dcTypes       = new string[10];
                 string kubunNameDisplay = "";
                 int    totalHeats      = 0;
                 string kbnDspName      = kbnName;
@@ -5810,9 +5845,10 @@ namespace DSPrt.印刷
                                 dances.Add(d);
                         }
                     }
-                    danceCount = Math.Min(dances.Count, 5);
-                    dsCodes    = dances.Take(5).Select(d => d["DE_DncCd"]?.ToString() ?? "").ToArray();
-                    dcTypes    = dances.Take(5).Select(d => d["DE_DncSG"]?.ToString() ?? "").ToArray();
+                    // 6種目以上は右上ボックスに種目記号を最大10個表示するため10件まで保持
+                    danceCount = Math.Min(dances.Count, 10);
+                    dsCodes    = dances.Take(10).Select(d => d["DE_DncCd"]?.ToString() ?? "").ToArray();
+                    dcTypes    = dances.Take(10).Select(d => d["DE_DncSG"]?.ToString() ?? "").ToArray();
 
                     // 種目GRP名は DGrpNo 指定（GRP毎印刷）かつ複数GRPのときだけ付加
                     string dgName = (!string.IsNullOrEmpty(dGrpNo) && (dgrps?.Count ?? 0) > 1 ? dgrp?["DD_DGrpName"]?.ToString() : "") ?? "";
@@ -5874,15 +5910,7 @@ namespace DSPrt.印刷
                 SetTextObject(report, "UP",          upText);
                 SetTextObject(report, "ScoreMethod", scrMtd);
 
-                for (int i = 1; i <= 5; i++)
-                {
-                    bool hasDance = i <= danceCount;
-                    SetTextObject(report, $"DS{i}", hasDance ? dsCodes[i - 1] : "");
-                    SetTextObject(report, $"DC{i}", hasDance ? dcTypes[i - 1] : "");
-                    var fc = hasDance ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent;
-                    SetTextObjectFill(report, $"DS{i}", fc);
-                    SetTextObjectFill(report, $"DC{i}", fc);
-                }
+                SetDanceHeaderBox(report, "", dsCodes, dcTypes, danceCount);
 
                 // 列ヘッダー: 得点列（AJS以外はブランク・罫線も消す）
                 SetTextObjectDirect(report, "DH_C05", isAjs ? "得点" : "",
@@ -5949,15 +5977,7 @@ namespace DSPrt.印刷
                         SetTextObject(report, "TotalComp",   $"出場　{totalEntries}組");
                         SetTextObject(report, "UP",          upText);
                         SetTextObject(report, "ScoreMethod", scrMtd);
-                        for (int i = 1; i <= 5; i++)
-                        {
-                            bool hasDance = i <= danceCount;
-                            SetTextObject(report, $"DS{i}", hasDance ? dsCodes[i - 1] : "");
-                            SetTextObject(report, $"DC{i}", hasDance ? dcTypes[i - 1] : "");
-                            var fc = hasDance ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent;
-                            SetTextObjectFill(report, $"DS{i}", fc);
-                            SetTextObjectFill(report, $"DC{i}", fc);
-                        }
+                        SetDanceHeaderBox(report, "", dsCodes, dcTypes, danceCount);
                         SetTextObjectDirect(report, "DH_C05", isAjs ? "得点" : "",
                             isAjs ? FastReport.BorderLines.All : FastReport.BorderLines.None);
                     }
@@ -6349,6 +6369,7 @@ namespace DSPrt.印刷
                 int    danceCount     = 0;
                 var dsCodes  = new string[MaxDances];
                 var dcTypes  = new string[MaxDances];
+                var judgeNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 string kubunNameDisp  = "";
                 int    totalHeats     = 0;
                 string kbnDspName     = kbnName;
@@ -6403,12 +6424,23 @@ namespace DSPrt.印刷
                     bool isShuffle = prgrs?["DS_PrgShuffle"]?.ToObject<bool>() ?? false;
                     upText = $"UP数 {rndUpPln} 組" + (isShuffle ? " シャッフル" : "");
 
+                    // ジャッジ記号 → ジャッジ名（最終ページのジャッジ一覧用）
+                    foreach (var dj in (daJson["DJ_JUDGEs"] as JArray)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                    {
+                        string jcd = dj["DJ_JdgCd"]?.ToString() ?? "";
+                        if (string.IsNullOrEmpty(jcd)) continue;
+                        judgeNameMap[jcd] = dj["DJ_JdgDispName"]?.ToString()
+                                            ?? dj["DJ_JdgName"]?.ToString() ?? "";
+                    }
+
                     var dgrps = rndObj?["DD_DGRPs"] as JArray;
                     JObject? dgrp = dgrps?.OfType<JObject>()
                         .FirstOrDefault(g => string.IsNullOrEmpty(dGrpNo) || g["DD_DGrpNo"]?.ToString() == dGrpNo);
                     // DGrpNo 空 = 全DGrpの種目を統合（種目コードで重複排除）、指定あり = そのDGrpの種目のみ
+                    // 並びは「種目GRP順 → 種目順」
                     var dances = new List<JObject>();
-                    foreach (var dg in dgrps?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                    foreach (var dg in (dgrps?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
+                                 .OrderBy(g => int.TryParse(g["DD_DGrpNo"]?.ToString(), out int gn) ? gn : int.MaxValue))
                     {
                         if (!string.IsNullOrEmpty(dGrpNo) && dg["DD_DGrpNo"]?.ToString() != dGrpNo) continue;
                         foreach (var d in (dg["DE_DANCEs"] as JArray)?.OfType<JObject>()
@@ -6563,18 +6595,16 @@ namespace DSPrt.印刷
                 SetSkatingR11BAndCRows(report, soGoMap, soGoR11, shomokuKekkaArr, MaxR11Rows);
 
                 // ── Page2〜: 種目別順位をセット ──────────────────────────
+                var allJudgeSymbols = new List<string>();   // 全種目で登場したジャッジ記号（出現順）
                 for (int di = 0; di < dancePagesCount; di++)
                 {
                     string dncCd    = di < dsCodes.Length ? dsCodes[di] : "";
                     string dnkPgSfx = (di == 0) ? "_P2" : $"_P{di + 2:D2}";
 
-                    // 種目名・ジャッジ情報
-                    string dncFullName = di < shomokuKekkaArr.Count
-                        ? (shomokuKekkaArr[di]["種目名"]?.ToString() ?? dncCd)
-                        : dncCd;
-                    int effJudgeCnt = di < shomokuKekkaArr.Count
-                        ? shomokuKekkaArr[di]["有効ジャッジ数"]?.ToObject<int>() ?? 0
-                        : 0;
+                    // 種目名・ジャッジ情報（種目記号で引く: shomokuKekkaArr の並びに依存しない）
+                    dncMap.TryGetValue(dncCd, out var dncInfo);
+                    string dncFullName = dncInfo?["種目名"]?.ToString() ?? dncCd;
+                    int effJudgeCnt = dncInfo?["有効ジャッジ数"]?.ToObject<int>() ?? 0;
                     int majority = effJudgeCnt > 0 ? (effJudgeCnt / 2) + 1 : 0;
 
                     SetTextObjectWithSuffix(report, "SK_DncName",  dnkPgSfx, dncFullName);
@@ -6607,6 +6637,9 @@ namespace DSPrt.印刷
                             }
                         }
 
+                        foreach (var s in judgeSymbols)
+                            if (!allJudgeSymbols.Contains(s)) allJudgeSymbols.Add(s);
+
                         // ジャッジ記号ヘッダーをセット
                         for (int jIdx = 0; jIdx < MaxJudges; jIdx++)
                         {
@@ -6628,6 +6661,15 @@ namespace DSPrt.印刷
                         SetSkatingDanceRows(report, playerNos, new Dictionary<string, JObject>(),
                             new List<string>(), PairsPerPage, dnkPgSfx);
                     }
+                }
+
+                // ── 最終ページ末尾: ジャッジ記号とジャッジ名の一覧 ─────────
+                string judgeListText = BuildJudgeListText(allJudgeSymbols, judgeNameMap);
+                for (int di = 0; di < dancePagesCount; di++)
+                {
+                    string sfx = (di == 0) ? "_P2" : $"_P{di + 2:D2}";
+                    SetTextObjectWithSuffix(report, "SK_JdgList", sfx,
+                        di == dancePagesCount - 1 ? judgeListText : "");
                 }
 
                 _log.LogAdd(
@@ -6687,15 +6729,7 @@ namespace DSPrt.印刷
                 }
             }
 
-            for (int i = 1; i <= 5; i++)
-            {
-                bool hasDance = i <= danceCount;
-                SetTextObject(report, $"DS{i}_{sfx}", hasDance ? dsCodes[i - 1] : "");
-                SetTextObject(report, $"DC{i}_{sfx}", hasDance ? dcTypes[i - 1] : "");
-                var fc = hasDance ? System.Drawing.Color.DarkOrange : System.Drawing.Color.Transparent;
-                SetTextObjectFill(report, $"DS{i}_{sfx}", fc);
-                SetTextObjectFill(report, $"DC{i}_{sfx}", fc);
-            }
+            SetDanceHeaderBox(report, $"_{sfx}", dsCodes, dcTypes, danceCount);
         }
 
         /// <summary>
@@ -7676,6 +7710,26 @@ namespace DSPrt.印刷
                     SetTextObjectDirect(report, $"SK_{nn}_Rank2{suffix}", "", FastReport.BorderLines.None);
                 }
             }
+        }
+
+        /// <summary>
+        /// 得点一覧表（順位法）の最終ページ末尾に印刷する「ジャッジ記号とジャッジ名」の一覧テキストを作る。
+        /// 1行に複数件を並べる（例: "A:山田太郎　B:鈴木花子　C:..."）。
+        /// </summary>
+        private static string BuildJudgeListText(List<string> symbols, Dictionary<string, string> nameMap)
+        {
+            if (symbols.Count == 0) return "";
+            // ジャッジ記号の昇順（A B F I K L M …）。採点データ側の並びには依存しない
+            symbols = symbols.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
+            const int PerLine = 4;
+            var lines = new List<string>();
+            for (int i = 0; i < symbols.Count; i += PerLine)
+            {
+                var items = symbols.Skip(i).Take(PerLine).Select(s =>
+                    nameMap.TryGetValue(s, out var nm) && !string.IsNullOrWhiteSpace(nm) ? $"{s}:{nm}" : s);
+                lines.Add(string.Join("　　", items));
+            }
+            return "ジャッジ\r\n" + string.Join("\r\n", lines);
         }
 
         /// <summary>

@@ -16,6 +16,8 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <!-- System.Drawing.Common: PrintDocument によるプリンター印刷に必要 -->
     <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
+    <!-- Microsoft.Web.WebView2: サーバー生成HTML（Web採点結果表）の印刷に使用 -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
   </ItemGroup>
 
   <ItemGroup>

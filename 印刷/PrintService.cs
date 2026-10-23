@@ -18,6 +18,7 @@ namespace DSPrt.印刷
         private readonly ReportRenderer _renderer;
         private readonly PrinterController _printerController;
         private readonly AwardService _awardService;
+        private readonly HtmlPrintService _htmlPrintService;
         private bool _isDisposed;
 
         // ─── イベント ────────────────────────────────────────────────
@@ -41,6 +42,7 @@ namespace DSPrt.印刷
             _renderer        = new ReportRenderer(log, dataManager);
             _printerController = new PrinterController(log);
             _awardService    = new AwardService(log, dataManager, _printerController);
+            _htmlPrintService = new HtmlPrintService(log, _printerController);
 
             _queue = new PrintJobQueue(log, AppSettings.Instance.PrintSettings.MaxQueueSize);
             _queue.ProcessJob      += OnProcessJobAsync;
@@ -57,9 +59,9 @@ namespace DSPrt.印刷
         /// </summary>
         public bool Enqueue(PrintJob job)
         {
-            // layoutId の存在チェック
+            // layoutId の存在チェック（HTML 印刷ジョブは DSPrt.json の Layouts 登録不要）
             var layout = _registry.Get(job.LayoutId);
-            if (layout == null)
+            if (layout == null && !HtmlPrintService.IsHtmlJob(job))
             {
                 _log.LogAdd($"[PrintService] 未登録の layoutId: {job.LayoutId}", _log.WARNING);
                 // layoutId 未登録でもキューには入れる（テスト印刷などのため）
@@ -147,6 +149,26 @@ namespace DSPrt.印刷
 
         private async Task OnProcessJobAsync(PrintJob job)
         {
+            // サーバー生成 HTML（Web採点結果表）: WebView2 で描画して印刷
+            if (HtmlPrintService.IsHtmlJob(job))
+            {
+                try
+                {
+                    var application = System.Windows.Application.Current
+                        ?? throw new InvalidOperationException("Application.Current が取得できません。");
+
+                    await await application.Dispatcher.InvokeAsync(() => _htmlPrintService.PrintAsync(job));
+                    PrintDone?.Invoke(this, new PrintDoneEventArgs(job.JobId, "done", null));
+                }
+                catch (Exception ex)
+                {
+                    _log.LogAdd($"[PrintService] HTML 印刷失敗: jobId={job.JobId}, error={ex.Message}", _log.ERR);
+                    PrintDone?.Invoke(this, new PrintDoneEventArgs(job.JobId, "error", ex.Message));
+                    throw;
+                }
+                return;
+            }
+
             if (string.Equals(job.LayoutId, AwardService.AwardLayoutId, StringComparison.OrdinalIgnoreCase))
             {
                 try
