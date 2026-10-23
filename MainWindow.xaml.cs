@@ -949,6 +949,8 @@ namespace DSPrt
             {
                 _awardLayout = repository.Load(path);
                 _awardLayoutPath = path;
+                AppSettings.Instance.PrintSettings.AwardLayoutPath = repository.GetRelativePath(path);
+                AppSettings.Save();
             }
             else if (!string.IsNullOrWhiteSpace(AppSettings.Instance.PrintSettings.AwardLayoutPath))
             {

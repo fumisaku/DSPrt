@@ -67,6 +67,12 @@ namespace DSPrt.賞状
             return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path));
         }
 
+        public string GetRelativePath(string path)
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            return Path.GetRelativePath(baseDir, path);
+        }
+
         private static string SanitizeFileName(string fileName)
         {
             foreach (char invalid in Path.GetInvalidFileNameChars())

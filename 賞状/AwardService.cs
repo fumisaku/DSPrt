@@ -45,7 +45,7 @@ namespace DSPrt.賞状
         public string SaveLayout(AwardLayout layout, string? path = null)
         {
             string saved = _repository.Save(layout, path);
-            AppSettings.Instance.PrintSettings.AwardLayoutPath = GetRelativePath(saved);
+            AppSettings.Instance.PrintSettings.AwardLayoutPath = _repository.GetRelativePath(saved);
             AppSettings.Save();
             return saved;
         }
@@ -674,10 +674,5 @@ namespace DSPrt.賞状
             return 0;
         }
 
-        private static string GetRelativePath(string path)
-        {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            return Path.GetRelativePath(baseDir, path);
-        }
     }
 }
