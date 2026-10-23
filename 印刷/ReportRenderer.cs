@@ -5145,7 +5145,10 @@ namespace DSPrt.印刷
                                 int ji = 0;
                                 foreach (var jd3 in judgeDetails.OfType<JObject>())
                                 {
-                                    rawScores[ji++] = jd3["素点"]?.ToObject<decimal>() ?? 0m;
+                                    // 無効ジャッジ(ジャッジ無効FLAG="1")は列を残し、セルは「-」表示にする。
+                                    // 素点は 0/1 なので、無効は -1 で表す（SetCheckScorePageRows で「-」に変換）。
+                                    bool isInvalidJudge = jd3["ジャッジ無効FLAG"]?.ToString() == "1";
+                                    rawScores[ji++] = isInvalidJudge ? CheckScoreInvalidMark : (jd3["素点"]?.ToObject<decimal>() ?? 0m);
                                 }
                                 checkScoreMap[bibNo][di] = rawScores;
 
@@ -5574,6 +5577,9 @@ namespace DSPrt.印刷
             }
         }
 
+        /// <summary>得点一覧表（チェック法）で、採点無効ジャッジのセルを表す素点の特殊値（表示は「-」）。</summary>
+        private const decimal CheckScoreInvalidMark = -1m;
+
         /// <summary>
         /// 得点一覧表（チェック法）の1ページ分データ行をセットする。
         /// 素点が 0 のときブランク、1 のとき "*"。
@@ -5659,13 +5665,13 @@ namespace DSPrt.印刷
                         else if (isFirst)      border = blLTB;
                         else if (isLast)       border = blRTB;
 
-                        // 素点: 0 → ブランク、1 → "*"
+                        // 素点: 0 → ブランク、1 → "*"、無効ジャッジ(-1) → "-"
                         decimal rawScore = 0m;
                         if (danceIdx < cScores.Length && cScores[danceIdx] != null &&
                             judgeIdx < cScores[danceIdx].Length)
                             rawScore = cScores[danceIdx][judgeIdx];
 
-                        string checkMark = rawScore == 0m ? "" : "*";
+                        string checkMark = rawScore == CheckScoreInvalidMark ? "-" : (rawScore == 0m ? "" : "*");
                         SetTextObjectDirect(report, cName, checkMark, border);
                         if (isUp)
                             SetTextObjectFill(report, cName, lightBlue);
@@ -7574,6 +7580,8 @@ namespace DSPrt.印刷
                             .ToDictionary(j => j["ジャッジ記号"]?.ToString() ?? "",
                                           j =>
                                           {
+                                              // 無効ジャッジは列を残し、セルは「-」表示にする
+                                              if (j["ジャッジ無効FLAG"]?.ToString() == "1") return "-";
                                               // 順位点を優先、なければ素点（テストデータ互換）
                                               var 順位点tok = j["順位点"];
                                               var 素点tok  = j["素点"];
