@@ -54,7 +54,7 @@ namespace DSPrt
 
         // ─── ウィンドウライフサイクル ────────────────────────────────
 
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             var ws = AppSettings.Instance.WebSocketSettings;
             Title = $"DSPrt - {ws.DisplayName}（{ws.InstanceId}）";
@@ -76,6 +76,9 @@ namespace DSPrt
 
             RefreshLayoutTab();
             InitializeAwardTab();
+
+            // 起動時に自動接続
+            await ConnectAndInitializeAsync();
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
