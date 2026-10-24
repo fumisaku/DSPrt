@@ -31,7 +31,9 @@ namespace DSPrt.印刷
         /// <summary>HTML 印刷ジョブかどうか（LayoutId と Data.Html の両方で判定）</summary>
         public static bool IsHtmlJob(PrintJob job)
         {
-            return job.LayoutId.StartsWith(LayoutIdPrefix, StringComparison.OrdinalIgnoreCase)
+            return (job.LayoutId.StartsWith(LayoutIdPrefix, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(job.LayoutId, "JUDGE_ANALYSIS_SHEET", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(job.LayoutId, "WEB_JUDGE_ANALYSIS", StringComparison.OrdinalIgnoreCase))
                    && !string.IsNullOrEmpty(GetHtml(job));
         }
 
