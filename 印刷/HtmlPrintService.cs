@@ -33,7 +33,9 @@ namespace DSPrt.印刷
         {
             return (job.LayoutId.StartsWith(LayoutIdPrefix, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(job.LayoutId, "JUDGE_ANALYSIS_SHEET", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(job.LayoutId, "WEB_JUDGE_ANALYSIS", StringComparison.OrdinalIgnoreCase))
+                    || string.Equals(job.LayoutId, "WEB_JUDGE_ANALYSIS", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(job.LayoutId, "WEB_TOTAL_RESULT", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(job.LayoutId, "WEB_RECEPTION_LIST", StringComparison.OrdinalIgnoreCase))
                    && !string.IsNullOrEmpty(GetHtml(job));
         }
 
@@ -90,8 +92,11 @@ namespace DSPrt.印刷
                     throw new InvalidOperationException("HTML の読み込みに失敗しました。");
 
                 var settings = env.CreatePrintSettings();
-                // Web採点結果（順位法）のみ A4 縦。それ以外（AJS/チェック法）は従来どおり横
-                bool isPortrait = job.LayoutId.Equals("WEB_SCORE_RESULT_RANK", StringComparison.OrdinalIgnoreCase);
+                // Web採点結果（順位法・AJS）は A4 縦。チェック法は従来どおり横
+                // 受付名簿（WEB_RECEPTION_LIST）も A4 縦
+                bool isPortrait = job.LayoutId.Equals("WEB_SCORE_RESULT_RANK", StringComparison.OrdinalIgnoreCase)
+                    || job.LayoutId.Equals("WEB_SCORE_RESULT_AJS", StringComparison.OrdinalIgnoreCase)
+                    || job.LayoutId.Equals("WEB_RECEPTION_LIST", StringComparison.OrdinalIgnoreCase);
                 settings.Orientation = isPortrait
                     ? CoreWebView2PrintOrientation.Portrait
                     : CoreWebView2PrintOrientation.Landscape;
