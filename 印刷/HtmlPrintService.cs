@@ -92,10 +92,15 @@ namespace DSPrt.印刷
                     throw new InvalidOperationException("HTML の読み込みに失敗しました。");
 
                 var settings = env.CreatePrintSettings();
+                // Web印刷は全帳票 A4 に統一する。CoreWebView2PrintSettings の既定は Letter(8.5x11in) のため、
+                // 向き(Orientation)だけでなく用紙寸法(A4: 210x297mm)も明示する。
+                settings.PageWidth = 210.0 / 25.4;
+                settings.PageHeight = 297.0 / 25.4;
                 // Web採点結果（順位法・AJS）は A4 縦。チェック法は従来どおり横
-                // 受付名簿（WEB_RECEPTION_LIST）も A4 縦
+                // 受付名簿（WEB_RECEPTION_LIST）・Web総合結果（WEB_TOTAL_RESULT）も A4 縦
                 bool isPortrait = job.LayoutId.Equals("WEB_SCORE_RESULT_RANK", StringComparison.OrdinalIgnoreCase)
                     || job.LayoutId.Equals("WEB_SCORE_RESULT_AJS", StringComparison.OrdinalIgnoreCase)
+                    || job.LayoutId.Equals("WEB_TOTAL_RESULT", StringComparison.OrdinalIgnoreCase)
                     || job.LayoutId.Equals("WEB_RECEPTION_LIST", StringComparison.OrdinalIgnoreCase);
                 settings.Orientation = isPortrait
                     ? CoreWebView2PrintOrientation.Portrait
